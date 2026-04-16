@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boxy Studio — Booking System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --bg:#0e0e0e;--surface:#161616;--surface2:#1f1f1f;
+    --border:#2a2a2a;--border2:#363636;
+    --accent:#c8f060;--accent2:#a0d040;
+    --text:#f0f0f0;--muted:#888;--muted2:#555;
+    --danger:#ff5c5c;--success:#4ade80;--info:#60a5fa;
+    --font-display:'Fraunces',serif;--font-mono:'DM Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-mono);min-height:100vh;}
+
+  /* LOGIN */
+  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:48px 40px;text-align:center;max-width:360px;width:100%;}
+  .login-logo{font-family:var(--font-display);font-style:italic;font-size:38px;color:var(--accent);margin-bottom:6px;}
+  .login-tag{font-size:12px;color:var(--muted);margin-bottom:36px;letter-spacing:.05em;}
+  .login-div{font-size:11px;color:var(--muted2);margin:16px 0;display:flex;align-items:center;gap:10px;}
+  .login-div::before,.login-div::after{content:'';flex:1;height:1px;background:var(--border);}
+  #gSignIn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px 20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font-mono);font-size:13px;cursor:pointer;transition:all .15s;}
+  #gSignIn:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* APP */
+  #appScreen{display:none;}
+  nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:100;flex-wrap:wrap;gap:10px;}
+  .nav-logo{font-family:var(--font-display);font-style:italic;font-size:20px;color:var(--accent);}
+  .nav-logo span{color:var(--muted);font-style:normal;font-size:11px;margin-left:6px;font-family:var(--font-mono);}
+  .nav-tabs{display:flex;gap:4px;}
+  .tab{padding:7px 14px;font-size:12px;font-family:var(--font-mono);background:none;border:1px solid transparent;border-radius:6px;color:var(--muted);cursor:pointer;transition:all .15s;}
+  .tab:hover{color:var(--text);border-color:var(--border2);}
+  .tab.active{background:var(--accent);color:#0e0e0e;border-color:var(--accent);font-weight:500;}
+  .nav-right{display:flex;align-items:center;gap:8px;}
+  .icon-btn{padding:7px 12px;font-size:12px;font-family:var(--font-mono);background:none;border:1px solid var(--border2);border-radius:6px;color:var(--muted);cursor:pointer;transition:all .15s;}
+  .icon-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .user-pill{display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--muted);}
+  .user-av{width:22px;height:22px;border-radius:50%;object-fit:cover;}
+
+  /* PAGES */
+  .page{display:none;padding:28px 24px;max-width:900px;margin:0 auto;}
+  .page.active{display:block;}
+  .section-title{font-family:var(--font-display);font-size:28px;font-weight:300;color:var(--text);margin-bottom:4px;}
+  .section-title em{color:var(--accent);font-style:italic;}
+  .section-sub{font-size:12px;color:var(--muted);margin-bottom:28px;}
+
+  /* CARD */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+  .card-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+  .card-lbl::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  /* FORM */
+  textarea{width:100%;height:160px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:14px;font-family:var(--font-mono);font-size:13px;color:var(--text);resize:vertical;line-height:1.7;outline:none;transition:border-color .15s;}
+  textarea:focus{border-color:var(--accent);}
+  textarea::placeholder{color:var(--muted2);}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field.full{grid-column:1/-1;}
+  .field label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .field input,.field select{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;font-family:var(--font-mono);font-size:13px;color:var(--text);outline:none;transition:border-color .15s;}
+  .field input:focus,.field select:focus{border-color:var(--accent);}
+  .field select option{background:var(--surface2);}
+  .btn{padding:10px 20px;font-size:12px;font-family:var(--font-mono);border-radius:8px;cursor:pointer;transition:all .15s;font-weight:500;border:none;}
+  .btn-p{background:var(--accent);color:#0e0e0e;}
+  .btn-p:hover{background:var(--accent2);}
+  .btn-p:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-g{background:none;border:1px solid var(--border2);color:var(--muted);}
+  .btn-g:hover{border-color:var(--text);color:var(--text);}
+
+  /* STATUS */
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;}
+  .pill.ok{background:rgba(74,222,128,.1);color:var(--success);border:1px solid rgba(74,222,128,.2);}
+  .pill.err{background:rgba(255,92,92,.1);color:var(--danger);border:1px solid rgba(255,92,92,.2);}
+  .pill.info{background:rgba(96,165,250,.1);color:var(--info);border:1px solid rgba(96,165,250,.2);}
+
+  /* TABLE */
+  .tbl-head{display:grid;grid-template-columns:1fr 110px 80px 130px;gap:8px;padding:8px 16px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);}
+  .tbl-row{display:grid;grid-template-columns:1fr 110px 80px 130px;gap:8px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);transition:background .1s;}
+  .tbl-row:hover{background:var(--surface2);}
+  .tbl-row:last-child{border-bottom:none;}
+  .e-name{font-size:13px;font-weight:500;}
+  .e-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+  .e-cell{font-size:12px;color:var(--muted);}
+  .badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;}
+  .b2{background:rgba(96,165,250,.15);color:var(--info);}
+  .b3{background:rgba(200,240,96,.15);color:var(--accent);}
+  .b4{background:rgba(167,139,250,.15);color:#c4b5fd;}
+
+  /* FILTER */
+  .filter-row{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+  .m-btn{padding:6px 12px;font-size:11px;font-family:var(--font-mono);background:none;border:1px solid var(--border2);border-radius:6px;color:var(--muted);cursor:pointer;transition:all .15s;}
+  .m-btn:hover{border-color:var(--text);color:var(--text);}
+  .m-btn.active{background:var(--accent);color:#0e0e0e;border-color:var(--accent);font-weight:500;}
+
+  /* DASHBOARD */
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
+  .metric{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
+  .m-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
+  .m-val{font-family:var(--font-display);font-size:28px;font-weight:600;line-height:1;}
+  .m-val.ac{color:var(--accent);}
+  .m-sub{font-size:11px;color:var(--muted);margin-top:6px;}
+
+  /* BAR CHART */
+  .bars{display:flex;align-items:flex-end;gap:6px;height:120px;}
+  .b-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;}
+  .bar{width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px;opacity:.85;transition:height .4s ease;}
+  .bar:hover{opacity:1;}
+  .b-lbl{font-size:9px;color:var(--muted);text-align:center;}
+
+  /* CALENDAR */
+  .cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+  .cal-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;transition:border-color .15s;}
+  .cal-card:hover{border-color:var(--border2);}
+  .cal-date{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--accent);}
+  .cal-client{font-size:14px;font-weight:500;margin:6px 0 2px;}
+  .cal-detail{font-size:12px;color:var(--muted);line-height:1.7;}
+  .cal-btn{margin-top:12px;padding:6px 12px;font-size:11px;font-family:var(--font-mono);border-radius:6px;cursor:pointer;border:1px solid var(--border2);background:none;color:var(--muted);transition:all .15s;}
+  .cal-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* MISC */
+  .empty{text-align:center;padding:48px 20px;color:var(--muted);font-size:13px;}
+  .empty-icon{font-size:32px;margin-bottom:12px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spinner{width:14px;height:14px;border:2px solid rgba(200,240,96,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;}
+  #toast{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+  .t-item{padding:12px 18px;border-radius:8px;font-size:13px;font-family:var(--font-mono);animation:su .25s ease;max-width:320px;}
+  .t-item.ok{background:var(--success);color:#0e0e0e;}
+  .t-item.err{background:var(--danger);color:#fff;}
+  .t-item.info{background:var(--info);color:#0e0e0e;}
+  @keyframes su{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+  @media(max-width:640px){
+    .fields{grid-template-columns:1fr;}
+    .metrics{grid-template-columns:1fr 1fr;}
+    .tbl-head,.tbl-row{grid-template-columns:1fr 80px;}
+    .tbl-head .c2,.tbl-head .c3,.tbl-row .c2,.tbl-row .c3{display:none;}
+    .nav-tabs .tab{padding:6px 10px;font-size:11px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">Boxy Studio</div>
+    <div class="login-tag">photobooth booking system</div>
+    <div class="login-div">sign in to continue</div>
+    <button id="gSignIn" onclick="signIn()">
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen">
+  <nav>
+    <div class="nav-logo">Boxy Studio <span>booking system</span></div>
+    <div class="nav-tabs">
+      <button class="tab active" onclick="showPage('add',this)">+ Add</button>
+      <button class="tab" onclick="showPage('bookings',this)">Bookings</button>
+      <button class="tab" onclick="showPage('calendar',this)">Calendar</button>
+      <button class="tab" onclick="showPage('dashboard',this)">Dashboard</button>
+    </div>
+    <div class="nav-right">
+      <button class="icon-btn" onclick="loadSheet()" id="syncBtn">↻ Sync</button>
+      <div class="user-pill">
+        <img id="uAv" class="user-av" src="" alt="" style="display:none;">
+        <span id="uName">—</span>
+      </div>
+      <button class="icon-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- ADD -->
+  <div class="page active" id="page-add">
+    <p class="section-title">Add <em>new booking</em></p>
+    <p class="section-sub">Paste the customer's WhatsApp reply — Claude extracts the details automatically.</p>
+    <div class="card">
+      <div class="card-lbl">Step 1 — WhatsApp message</div>
+      <textarea id="waText" placeholder="Paste WhatsApp text here...
+
+Contoh / Example:
+Nama: Siti Aishah
+Jenis Majlis: Wedding
+Tarikh: 15/08/2026
+Pakej: 3 JAM
+Masa: 12.00pm - 3.00pm
+Harga: RM600 (depo 100)
+Lokasi: Dewan Seri Kenanga, Shah Alam"></textarea>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:12px;">
+        <button class="btn btn-p" onclick="parseEntry()" id="parseBtn">Extract details →</button>
+        <span id="parseStatus"></span>
+      </div>
+    </div>
+    <div class="card" id="reviewCard" style="display:none;">
+      <div class="card-lbl">Step 2 — Review & confirm</div>
+      <div class="fields">
+        <div class="field"><label>Client name</label><input id="f_client" type="text"></div>
+        <div class="field"><label>Event type</label><input id="f_event" type="text"></div>
+        <div class="field"><label>Date (DD/MM/YYYY)</label><input id="f_date" type="text"></div>
+        <div class="field"><label>Package</label>
+          <select id="f_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select>
+        </div>
+        <div class="field"><label>Time (e.g. 7.00pm-9.00pm)</label><input id="f_time" type="text"></div>
+        <div class="field"><label>Price (e.g. RM600 (depo 100))</label><input id="f_price" type="text"></div>
+        <div class="field full"><label>Location</label><input id="f_loc" type="text"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px;align-items:center;">
+        <button class="btn btn-p" onclick="submitEntry()" id="submitBtn">Save to Google Sheet ↑</button>
+        <button class="btn btn-g" onclick="cancelEntry()">Cancel</button>
+        <span id="submitStatus"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOOKINGS -->
+  <div class="page" id="page-bookings">
+    <p class="section-title">All <em>bookings</em></p>
+    <p class="section-sub">Live from your Google Sheet.</p>
+    <div class="filter-row" id="monthFilters"></div>
+    <div class="card" style="padding:0;">
+      <div id="bookingsTable"><div class="empty"><div class="empty-icon">📋</div>Click Sync to load.</div></div>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="page" id="page-calendar">
+    <p class="section-title">Upcoming <em>schedule</em></p>
+    <p class="section-sub">Your next bookings — click to add to Google Calendar.</p>
+    <div class="cal-grid" id="calGrid"><div class="empty"><div class="empty-icon">📅</div>Click Sync to load.</div></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page" id="page-dashboard">
+    <p class="section-title">Revenue <em>dashboard</em></p>
+    <p class="section-sub">Your business at a glance.</p>
+    <div class="metrics">
+      <div class="metric"><div class="m-lbl">Total revenue</div><div class="m-val ac" id="m-total">—</div><div class="m-sub">all time</div></div>
+      <div class="metric"><div class="m-lbl">This month</div><div class="m-val" id="m-month">—</div><div class="m-sub" id="m-mlbl">—</div></div>
+      <div class="metric"><div class="m-lbl">Total bookings</div><div class="m-val" id="m-count">—</div><div class="m-sub">confirmed</div></div>
+      <div class="metric"><div class="m-lbl">Avg per booking</div><div class="m-val" id="m-avg">—</div><div class="m-sub">estimated</div></div>
+      <div class="metric"><div class="m-lbl">Top package</div><div class="m-val" id="m-pkg" style="font-size:18px;">—</div><div class="m-sub" id="m-pkgs">—</div></div>
+      <div class="metric"><div class="m-lbl">Top event type</div><div class="m-val" id="m-ev" style="font-size:18px;">—</div><div class="m-sub" id="m-evs">—</div></div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Monthly revenue (last 8 months)</div>
+      <div class="bars" id="barChart"></div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Deposit tracker</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;padding-top:4px;" id="depoStats"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const CLIENT_ID   = '548211831752-eear5f1hk2ag8edl4et7mv2efh9puht1.apps.googleusercontent.com';
+const SHEET_ID    = '1wH8LynLzQcGbITitr7HlnwCxBTUZyjhNemzE2Imwuww';
+const SHEET_NAME  = 'Client Record';
+const SCOPES      = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile';
+const MODEL       = 'claude-sonnet-4-20250514';
+
+let token = null, allBookings = [], activeMonth = 'all', tokenClient = null;
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function initG() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID, scope: SCOPES,
+    callback: r => {
+      if (r.error) { toast('Sign-in error: ' + r.error, 'err'); return; }
+      token = r.access_token;
+      fetchUser();
+    }
+  });
+}
+function signIn() {
+  if (!window.google) { toast('Google library loading, try again.', 'err'); return; }
+  if (!tokenClient) initG();
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+function signOut() {
+  if (token) google.accounts.oauth2.revoke(token);
+  token = null; allBookings = [];
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appScreen').style.display   = 'none';
+  toast('Signed out.', 'info');
+}
+async function fetchUser() {
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers:{ Authorization:'Bearer '+token } });
+    const u = await r.json();
+    document.getElementById('uName').textContent = u.given_name || u.name || u.email || '';
+    const av = document.getElementById('uAv');
+    if (u.picture) { av.src = u.picture; av.style.display = 'block'; }
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display   = 'block';
+    loadSheet();
+  } catch(e) { toast('Could not load user info.', 'err'); }
+}
+window.addEventListener('load', () => {
+  const s = document.querySelector('script[src*="gsi"]');
+  if (s) s.addEventListener('load', () => setTimeout(initG, 200));
+  else setTimeout(initG, 500);
+});
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name==='bookings') renderBookings();
+  if (name==='calendar') renderCalendar();
+  if (name==='dashboard') renderDashboard();
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function toast(msg, type='ok') {
+  const el = document.createElement('div');
+  el.className = 't-item ' + type; el.textContent = msg;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+function setSt(id, html) { document.getElementById(id).innerHTML = html; }
+
+// ── SHEET ─────────────────────────────────────────────────────────────────────
+async function loadSheet() {
+  if (!token) { toast('Sign in first.', 'err'); return; }
+  const btn = document.getElementById('syncBtn');
+  btn.textContent = '↻ Syncing...';
+  try {
+    const r = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}`,
+      { headers:{ Authorization:'Bearer '+token } }
+    );
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    allBookings = (d.values||[]).slice(1).filter(r=>r[0]&&r[0].trim()).map(r=>({
+      client:r[0]||'', event:r[1]||'', date:r[2]||'',
+      pkg:r[3]||'', time:r[4]||'', price:r[5]||'', location:r[6]||''
+    }));
+    toast(`Synced — ${allBookings.length} bookings`, 'ok');
+    const pg = document.querySelector('.page.active');
+    if (pg) {
+      const id = pg.id.replace('page-','');
+      if(id==='bookings') renderBookings();
+      if(id==='calendar') renderCalendar();
+      if(id==='dashboard') renderDashboard();
+    }
+  } catch(e) { toast('Sync failed: '+e.message, 'err'); }
+  btn.textContent = '↻ Sync';
+}
+
+// ── PARSE ─────────────────────────────────────────────────────────────────────
+function parseEntry() {
+  const txt = document.getElementById('waText').value.trim();
+  if (!txt) { toast('Paste a message first.', 'err'); return; }
+
+  // ── FIELD EXTRACTORS ──────────────────────────────────────────────────────
+  const getField = (patterns, text) => {
+    for (const pat of patterns) {
+      const m = text.match(pat);
+      if (m && m[1] && m[1].trim() && m[1].trim() !== '-') return m[1].trim();
+    }
+    return '';
+  };
+
+  const lines = txt;
+
+  // Client name
+  const client = getField([
+    /nama\s+penuh\s*[:\-]\s*(.+)/i,
+    /nama\s*[:\-]\s*(.+)/i,
+    /name\s*[:\-]\s*(.+)/i,
+    /client\s*[:\-]\s*(.+)/i,
+  ], lines);
+
+  // Event type
+  const event = getField([
+    /jenis\s+majlis\s*[:\-]\s*(.+)/i,
+    /event\s+type\s*[:\-]\s*(.+)/i,
+    /event\s*[:\-]\s*(.+)/i,
+    /majlis\s*[:\-]\s*(.+)/i,
+    /jenis\s*[:\-]\s*(.+)/i,
+  ], lines);
+
+  // Date
+  const dateRaw = getField([
+    /tarikh\s*[:\-]\s*(.+)/i,
+    /date\s*[:\-]\s*(.+)/i,
+    /tariikh\s*[:\-]\s*(.+)/i,
+  ], lines);
+  // Normalise date separators to DD/MM/YYYY
+  const date = dateRaw.replace(/[\.\-]/g, '/').replace(/\s/g,'');
+
+  // Package — look for 2, 3 or 4
+  const pkgRaw = getField([
+    /pakej\s+2\/3\/4\s*jam\s*[:\-]\s*(.+)/i,
+    /pakej\s*[:\-]\s*(.+)/i,
+    /package\s*[:\-]\s*(.+)/i,
+    /pack\s*[:\-]\s*(.+)/i,
+  ], lines);
+  let pkg = '2 JAM';
+  if (/4/.test(pkgRaw)) pkg = '4 JAM';
+  else if (/3/.test(pkgRaw)) pkg = '3 JAM';
+  else if (/2/.test(pkgRaw)) pkg = '2 JAM';
+
+  // Time — handle Malay (ptg=pm, mlm=pm, pagi=am, tghari=pm)
+  const timeRaw = getField([
+    /masa\s*[:\-]\s*(.+)/i,
+    /time\s*[:\-]\s*(.+)/i,
+    /waktu\s*[:\-]\s*(.+)/i,
+  ], lines);
+  const time = convertTime(timeRaw);
+
+  // Price
+  const price = getField([
+    /harga\s*[:\-]\s*(.+)/i,
+    /price\s*[:\-]\s*(.+)/i,
+    /bayaran\s*[:\-]\s*(.+)/i,
+    /jumlah\s*[:\-]\s*(.+)/i,
+  ], lines);
+
+  // Location
+  const location = getField([
+    /location\s*[:\-]\s*(.+)/i,
+    /lokasi\s*[:\-]\s*(.+)/i,
+    /venue\s*[:\-]\s*(.+)/i,
+    /tempat\s*[:\-]\s*(.+)/i,
+    /alamat\s*[:\-]\s*(.+)/i,
+  ], lines);
+
+  // Fill form
+  document.getElementById('f_client').value = client;
+  document.getElementById('f_event').value  = event;
+  document.getElementById('f_date').value   = date;
+  document.getElementById('f_pkg').value    = pkg;
+  document.getElementById('f_time').value   = time;
+  document.getElementById('f_price').value  = price;
+  document.getElementById('f_loc').value    = location;
+
+  document.getElementById('reviewCard').style.display = 'block';
+
+  // Check how many fields were filled
+  const filled = [client, event, date, time, location].filter(v=>v).length;
+  if (filled >= 3) {
+    setSt('parseStatus','<span class="pill ok">✓ Extracted — review & confirm</span>');
+  } else {
+    setSt('parseStatus','<span class="pill info">⚠ Partially extracted — please fill missing fields</span>');
+  }
+}
+
+// Convert Malay time expressions to 12hr format
+function convertTime(raw) {
+  if (!raw) return '';
+  // Replace Malay suffixes with am/pm
+  let t = raw
+    .replace(/\s*pagi/gi, 'am')
+    .replace(/\s*tengahari/gi, 'pm')
+    .replace(/\s*tghari/gi, 'pm')
+    .replace(/\s*ptg/gi, 'pm')
+    .replace(/\s*petang/gi, 'pm')
+    .replace(/\s*mlm/gi, 'pm')
+    .replace(/\s*malam/gi, 'pm');
+
+  // Extract start and end times
+  const timePattern = /(\d{1,2})(?:[:\.](\d{2}))?\s*(am|pm)?/gi;
+  const matches = [...t.matchAll(timePattern)];
+  if (!matches.length) return raw;
+
+  const fmt = (h, m, meridiem) => {
+    const hh = String(h).padStart(1,'');
+    const mm = m ? String(m).padStart(2,'0') : '00';
+    return `${hh}.${mm}${meridiem||'pm'}`;
+  };
+
+  if (matches.length >= 2) {
+    const [h1, m1, mer1] = [+matches[0][1], matches[0][2]||'00', matches[0][3]];
+    const [h2, m2, mer2] = [+matches[1][1], matches[1][2]||'00', matches[1][3]];
+    return `${fmt(h1,m1,mer1)}-${fmt(h2,m2,mer2)}`;
+  }
+  if (matches.length === 1) {
+    const [h, m, mer] = [+matches[0][1], matches[0][2]||'00', matches[0][3]];
+    return fmt(h, m, mer);
+  }
+  return raw;
+}
+
+function cancelEntry() {
+  document.getElementById('reviewCard').style.display = 'none';
+  document.getElementById('waText').value = '';
+  setSt('parseStatus','');
+}
+
+// ── SUBMIT ────────────────────────────────────────────────────────────────────
+async function submitEntry() {
+  if (!token) { toast('Not signed in.', 'err'); return; }
+  const row = [
+    document.getElementById('f_client').value.trim(),
+    document.getElementById('f_event').value.trim(),
+    document.getElementById('f_date').value.trim(),
+    document.getElementById('f_pkg').value,
+    document.getElementById('f_time').value.trim(),
+    document.getElementById('f_price').value.trim(),
+    document.getElementById('f_loc').value.trim(),
+  ];
+  if (!row[0]||!row[2]) { toast('Client name and Date required.', 'err'); return; }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  setSt('submitStatus','<span class="spinner"></span>');
+  try {
+    const r = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}:append?valueInputOption=USER_ENTERED`,
+      { method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
+        body: JSON.stringify({ values:[row] }) }
+    );
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    toast(`${row[0]} saved to Google Sheet ✓`, 'ok');
+    allBookings.push({ client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6] });
+    cancelEntry(); setSt('submitStatus','');
+  } catch(e) {
+    toast('Save failed: '+e.message, 'err');
+    setSt('submitStatus',`<span class="pill err">${e.message}</span>`);
+  }
+  btn.disabled = false; btn.textContent = 'Save to Google Sheet ↑';
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+const parsePrice = s => { const m=(s||'').match(/RM\s*([\d,.]+)/i); return m?parseFloat(m[1].replace(/,/g,'')):0; };
+const parseDate  = s => { if(!s)return null; const p=s.split('/'); if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]); const d=new Date(s); return isNaN(d)?null:d; };
+const fmtDate    = s => { const d=parseDate(s); return d?d.toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'}):s; };
+const mKey       = s => { const d=parseDate(s); if(!d)return null; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+const mLabel     = k => { if(!k)return''; const[y,m]=k.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('en-MY',{month:'short',year:'numeric'}); };
+const parseDepo  = s => { if(!s)return 0; if(/full payment/i.test(s))return parsePrice(s); const m=s.match(/depo\w*\s*(rm\s*)?([\d]+)/i); return m?parseFloat(m[2]):0; };
+
+// ── BOOKINGS ──────────────────────────────────────────────────────────────────
+function renderBookings() {
+  const months = [...new Set(allBookings.map(b=>mKey(b.date)).filter(Boolean))].sort();
+  document.getElementById('monthFilters').innerHTML =
+    `<button class="m-btn ${activeMonth==='all'?'active':''}" onclick="setMonth('all')">All</button>`+
+    months.map(m=>`<button class="m-btn ${activeMonth===m?'active':''}" onclick="setMonth('${m}')">${mLabel(m)}</button>`).join('');
+  const list = activeMonth==='all' ? allBookings : allBookings.filter(b=>mKey(b.date)===activeMonth);
+  const el = document.getElementById('bookingsTable');
+  if (!list.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📋</div>No bookings found.</div>'; return; }
+  const bClass = p => p&&p[0]==='4'?'b4':p&&p[0]==='3'?'b3':'b2';
+  el.innerHTML = `<div class="tbl-head"><div>Client</div><div class="c2">Date</div><div class="c3">Package</div><div>Price</div></div>`+
+    list.map(b=>`<div class="tbl-row">
+      <div><div class="e-name">${b.client}</div><div class="e-meta">${b.event}${b.location?' · '+b.location:''}</div></div>
+      <div class="e-cell c2">${fmtDate(b.date)}</div>
+      <div class="e-cell c3"><span class="badge ${bClass(b.pkg)}">${b.pkg||'—'}</span></div>
+      <div class="e-cell">${b.price}</div>
+    </div>`).join('');
+}
+function setMonth(m) { activeMonth=m; renderBookings(); }
+
+// ── CALENDAR ──────────────────────────────────────────────────────────────────
+function renderCalendar() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const up = allBookings.filter(b=>{ const d=parseDate(b.date); return d&&d>=today; })
+    .sort((a,b)=>parseDate(a.date)-parseDate(b.date)).slice(0,24);
+  const g = document.getElementById('calGrid');
+  if (!up.length) { g.innerHTML='<div class="empty"><div class="empty-icon">📅</div>No upcoming bookings.</div>'; return; }
+  g.innerHTML = up.map(b=>{
+    const d=parseDate(b.date);
+    const dl=d?d.toLocaleDateString('en-MY',{day:'numeric',month:'short'}):b.date;
+    const dy=d?d.toLocaleDateString('en-MY',{weekday:'long'}):'';
+    return `<div class="cal-card">
+      <div class="cal-date">${dl}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">${dy}</div>
+      <div class="cal-client">${b.client}</div>
+      <div class="cal-detail">${b.event}<br>${b.pkg} · ${b.time}<br>${b.location}</div>
+      <button class="cal-btn" onclick="window.open('${calUrl(b)}','_blank')">+ Add to Google Calendar</button>
+    </div>`;
+  }).join('');
+}
+
+function calUrl(b) {
+  const d=parseDate(b.date); if(!d) return '#';
+  const pad=n=>String(n).padStart(2,'0');
+  const ymd=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+  const pt=(t,def)=>{ const m=(t||'').match(/(\d+)\.(\d+)\s*(am|pm)/i); if(!m)return def;
+    let h=+m[1],mn=+m[2]; if(m[3].toLowerCase()==='pm'&&h!==12)h+=12; if(m[3].toLowerCase()==='am'&&h===12)h=0;
+    return `${ymd}T${pad(h)}${pad(mn)}00`; };
+  const pts=(b.time||'').split('-');
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE`+
+    `&text=${encodeURIComponent('Boxy Studio — '+b.client+' ('+b.event+')')}`+
+    `&dates=${pt(pts[0],ymd+'T090000')}/${pt(pts[1],ymd+'T110000')}`+
+    `&details=${encodeURIComponent('Package: '+b.pkg+'\nTime: '+b.time+'\nPrice: '+b.price)}`+
+    `&location=${encodeURIComponent(b.location)}`;
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function renderDashboard() {
+  if (!allBookings.length) { toast('Sync first to view dashboard.','info'); return; }
+  const now=new Date(), tm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const prices=allBookings.map(b=>parsePrice(b.price));
+  const total=prices.reduce((a,v)=>a+v,0);
+  const mPrices=allBookings.filter(b=>mKey(b.date)===tm).map(b=>parsePrice(b.price));
+  const mTotal=mPrices.reduce((a,v)=>a+v,0);
+  const avg=prices.length?total/prices.length:0;
+  const pkgC={},evC={};
+  allBookings.forEach(b=>{ if(b.pkg)pkgC[b.pkg]=(pkgC[b.pkg]||0)+1; if(b.event)evC[b.event]=(evC[b.event]||0)+1; });
+  const topPkg=Object.entries(pkgC).sort((a,b)=>b[1]-a[1])[0];
+  const topEv=Object.entries(evC).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('m-total').textContent = `RM${Math.round(total).toLocaleString()}`;
+  document.getElementById('m-month').textContent = `RM${Math.round(mTotal).toLocaleString()}`;
+  document.getElementById('m-mlbl').textContent  = mLabel(tm);
+  document.getElementById('m-count').textContent = allBookings.length;
+  document.getElementById('m-avg').textContent   = `RM${Math.round(avg).toLocaleString()}`;
+  document.getElementById('m-pkg').textContent   = topPkg?topPkg[0]:'—';
+  document.getElementById('m-pkgs').textContent  = topPkg?`${topPkg[1]} bookings`:'';
+  document.getElementById('m-ev').textContent    = topEv?topEv[0]:'—';
+  document.getElementById('m-evs').textContent   = topEv?`${topEv[1]} bookings`:'';
+  // Bar chart
+  const byM={};
+  allBookings.forEach(b=>{ const k=mKey(b.date); if(k)byM[k]=(byM[k]||0)+parsePrice(b.price); });
+  const keys=Object.keys(byM).sort().slice(-8);
+  const maxR=Math.max(...keys.map(k=>byM[k]),1);
+  document.getElementById('barChart').innerHTML=keys.map(k=>{
+    const pct=Math.round((byM[k]/maxR)*100);
+    const lbl=new Date(k+'-01').toLocaleDateString('en-MY',{month:'short'});
+    return `<div class="b-col"><div class="bar" style="height:${pct}%" title="${lbl}: RM${Math.round(byM[k]).toLocaleString()}"></div><div class="b-lbl">${lbl}</div></div>`;
+  }).join('');
+  // Deposits
+  const td=allBookings.reduce((a,b)=>a+parseDepo(b.price),0);
+  const fp=allBookings.filter(b=>/full payment/i.test(b.price)).length;
+  const dp=allBookings.filter(b=>/depo/i.test(b.price)).length;
+  document.getElementById('depoStats').innerHTML=[
+    [`RM${Math.round(td).toLocaleString()}`,'deposits collected','var(--accent)'],
+    [fp,'fully paid','var(--success)'],
+    [dp,'deposit only','var(--text)'],
+    [`RM${Math.round(total-td).toLocaleString()}`,'balance outstanding','var(--danger)'],
+  ].map(([v,l,c])=>`<div><div style="font-size:24px;font-family:var(--font-display);color:${c};">${v}</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">${l}</div></div>`).join('');
+}
+</script>
+</body>
+</html>
