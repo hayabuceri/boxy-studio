@@ -366,37 +366,138 @@ async function loadSheet() {
 }
 
 // ── PARSE ─────────────────────────────────────────────────────────────────────
-async function parseEntry() {
+function parseEntry() {
   const txt = document.getElementById('waText').value.trim();
   if (!txt) { toast('Paste a message first.', 'err'); return; }
-  const btn = document.getElementById('parseBtn');
-  btn.disabled = true; btn.textContent = 'Extracting...';
-  setSt('parseStatus', '<span class="spinner"></span>');
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model:MODEL, max_tokens:400, messages:[{ role:'user', content:
-        `Extract photobooth booking details from this WhatsApp message. Return ONLY a valid JSON object with keys: client, event_type, date, package, time, price, location.\n\nRules:\n- date: DD/MM/YYYY\n- package: "2 JAM", "3 JAM", or "4 JAM"\n- time: "X.XXpm-X.XXpm"\n- price: keep deposit, e.g. "RM600 (depo 100)"\n- missing field = ""\n\nMessage:\n${txt}\n\nReturn ONLY JSON, no markdown.`
-      }]})
-    });
-    const d = await r.json();
-    const raw = d.content.map(i=>i.text||'').join('').replace(/```json|```/g,'').trim();
-    const p = JSON.parse(raw);
-    document.getElementById('f_client').value = p.client||'';
-    document.getElementById('f_event').value  = p.event_type||'';
-    document.getElementById('f_date').value   = p.date||'';
-    const s = document.getElementById('f_pkg');
-    if(['2 JAM','3 JAM','4 JAM'].includes(p.package)) s.value = p.package;
-    document.getElementById('f_time').value  = p.time||'';
-    document.getElementById('f_price').value = p.price||'';
-    document.getElementById('f_loc').value   = p.location||'';
-    document.getElementById('reviewCard').style.display = 'block';
-    setSt('parseStatus','<span class="pill ok">✓ Extracted — review below</span>');
-  } catch(e) {
-    document.getElementById('reviewCard').style.display = 'block';
-    setSt('parseStatus','<span class="pill err">Parse failed — fill manually</span>');
+
+  // ── FIELD EXTRACTORS ──────────────────────────────────────────────────────
+  const getField = (patterns, text) => {
+    for (const pat of patterns) {
+      const m = text.match(pat);
+      if (m && m[1] && m[1].trim() && m[1].trim() !== '-') return m[1].trim();
+    }
+    return '';
+  };
+
+  const lines = txt;
+
+  // Client name
+  const client = getField([
+    /nama\s+penuh\s*[:\-]\s*(.+)/i,
+    /nama\s*[:\-]\s*(.+)/i,
+    /name\s*[:\-]\s*(.+)/i,
+    /client\s*[:\-]\s*(.+)/i,
+  ], lines);
+
+  // Event type
+  const event = getField([
+    /jenis\s+majlis\s*[:\-]\s*(.+)/i,
+    /event\s+type\s*[:\-]\s*(.+)/i,
+    /event\s*[:\-]\s*(.+)/i,
+    /majlis\s*[:\-]\s*(.+)/i,
+    /jenis\s*[:\-]\s*(.+)/i,
+  ], lines);
+
+  // Date
+  const dateRaw = getField([
+    /tarikh\s*[:\-]\s*(.+)/i,
+    /date\s*[:\-]\s*(.+)/i,
+    /tariikh\s*[:\-]\s*(.+)/i,
+  ], lines);
+  // Normalise date separators to DD/MM/YYYY
+  const date = dateRaw.replace(/[\.\-]/g, '/').replace(/\s/g,'');
+
+  // Package — look for 2, 3 or 4
+  const pkgRaw = getField([
+    /pakej\s+2\/3\/4\s*jam\s*[:\-]\s*(.+)/i,
+    /pakej\s*[:\-]\s*(.+)/i,
+    /package\s*[:\-]\s*(.+)/i,
+    /pack\s*[:\-]\s*(.+)/i,
+  ], lines);
+  let pkg = '2 JAM';
+  if (/4/.test(pkgRaw)) pkg = '4 JAM';
+  else if (/3/.test(pkgRaw)) pkg = '3 JAM';
+  else if (/2/.test(pkgRaw)) pkg = '2 JAM';
+
+  // Time — handle Malay (ptg=pm, mlm=pm, pagi=am, tghari=pm)
+  const timeRaw = getField([
+    /masa\s*[:\-]\s*(.+)/i,
+    /time\s*[:\-]\s*(.+)/i,
+    /waktu\s*[:\-]\s*(.+)/i,
+  ], lines);
+  const time = convertTime(timeRaw);
+
+  // Price
+  const price = getField([
+    /harga\s*[:\-]\s*(.+)/i,
+    /price\s*[:\-]\s*(.+)/i,
+    /bayaran\s*[:\-]\s*(.+)/i,
+    /jumlah\s*[:\-]\s*(.+)/i,
+  ], lines);
+
+  // Location
+  const location = getField([
+    /location\s*[:\-]\s*(.+)/i,
+    /lokasi\s*[:\-]\s*(.+)/i,
+    /venue\s*[:\-]\s*(.+)/i,
+    /tempat\s*[:\-]\s*(.+)/i,
+    /alamat\s*[:\-]\s*(.+)/i,
+  ], lines);
+
+  // Fill form
+  document.getElementById('f_client').value = client;
+  document.getElementById('f_event').value  = event;
+  document.getElementById('f_date').value   = date;
+  document.getElementById('f_pkg').value    = pkg;
+  document.getElementById('f_time').value   = time;
+  document.getElementById('f_price').value  = price;
+  document.getElementById('f_loc').value    = location;
+
+  document.getElementById('reviewCard').style.display = 'block';
+
+  // Check how many fields were filled
+  const filled = [client, event, date, time, location].filter(v=>v).length;
+  if (filled >= 3) {
+    setSt('parseStatus','<span class="pill ok">✓ Extracted — review & confirm</span>');
+  } else {
+    setSt('parseStatus','<span class="pill info">⚠ Partially extracted — please fill missing fields</span>');
   }
-  btn.disabled = false; btn.textContent = 'Extract details →';
+}
+
+// Convert Malay time expressions to 12hr format
+function convertTime(raw) {
+  if (!raw) return '';
+  // Replace Malay suffixes with am/pm
+  let t = raw
+    .replace(/\s*pagi/gi, 'am')
+    .replace(/\s*tengahari/gi, 'pm')
+    .replace(/\s*tghari/gi, 'pm')
+    .replace(/\s*ptg/gi, 'pm')
+    .replace(/\s*petang/gi, 'pm')
+    .replace(/\s*mlm/gi, 'pm')
+    .replace(/\s*malam/gi, 'pm');
+
+  // Extract start and end times
+  const timePattern = /(\d{1,2})(?:[:\.](\d{2}))?\s*(am|pm)?/gi;
+  const matches = [...t.matchAll(timePattern)];
+  if (!matches.length) return raw;
+
+  const fmt = (h, m, meridiem) => {
+    const hh = String(h).padStart(1,'');
+    const mm = m ? String(m).padStart(2,'0') : '00';
+    return `${hh}.${mm}${meridiem||'pm'}`;
+  };
+
+  if (matches.length >= 2) {
+    const [h1, m1, mer1] = [+matches[0][1], matches[0][2]||'00', matches[0][3]];
+    const [h2, m2, mer2] = [+matches[1][1], matches[1][2]||'00', matches[1][3]];
+    return `${fmt(h1,m1,mer1)}-${fmt(h2,m2,mer2)}`;
+  }
+  if (matches.length === 1) {
+    const [h, m, mer] = [+matches[0][1], matches[0][2]||'00', matches[0][3]];
+    return fmt(h, m, mer);
+  }
+  return raw;
 }
 
 function cancelEntry() {
