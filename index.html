@@ -3,650 +3,685 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Boxy Studio — Booking System</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<title>Boxy Studio — Photobooth Malaysia</title>
+<meta name="description" content="Premium photobooth rental for weddings, dinners & events across Malaysia. Unlimited prints, custom templates, professional crew.">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:#0e0e0e;--surface:#161616;--surface2:#1f1f1f;
-    --border:#2a2a2a;--border2:#363636;
-    --accent:#c8f060;--accent2:#a0d040;
-    --text:#f0f0f0;--muted:#888;--muted2:#555;
-    --danger:#ff5c5c;--success:#4ade80;--info:#60a5fa;
-    --font-display:'Fraunces',serif;--font-mono:'DM Mono',monospace;
-  }
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:var(--bg);color:var(--text);font-family:var(--font-mono);min-height:100vh;}
+:root {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface2: #1c1c1c;
+  --border: #252525;
+  --border2: #333;
+  --accent: #c8f060;
+  --accent2: #a0d040;
+  --text: #f0ede8;
+  --muted: #888;
+  --muted2: #555;
+  --font-display: 'Fraunces', serif;
+  --font-mono: 'DM Mono', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-mono); overflow-x: hidden; }
 
-  /* LOGIN */
-  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:48px 40px;text-align:center;max-width:360px;width:100%;}
-  .login-logo{font-family:var(--font-display);font-style:italic;font-size:38px;color:var(--accent);margin-bottom:6px;}
-  .login-tag{font-size:12px;color:var(--muted);margin-bottom:36px;letter-spacing:.05em;}
-  .login-div{font-size:11px;color:var(--muted2);margin:16px 0;display:flex;align-items:center;gap:10px;}
-  .login-div::before,.login-div::after{content:'';flex:1;height:1px;background:var(--border);}
-  #gSignIn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px 20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font-mono);font-size:13px;cursor:pointer;transition:all .15s;}
-  #gSignIn:hover{border-color:var(--accent);color:var(--accent);}
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 40px;
+  transition: background 0.3s, border-color 0.3s;
+}
+nav.scrolled {
+  background: rgba(10,10,10,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 22px;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: -0.5px;
+}
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-links a {
+  font-size: 12px; color: var(--muted); text-decoration: none;
+  letter-spacing: 0.05em; transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-cta {
+  padding: 8px 18px;
+  background: var(--accent);
+  color: #0a0a0a;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.nav-cta:hover { background: var(--accent2); }
+.nav-admin {
+  font-size: 11px; color: var(--muted2); text-decoration: none;
+  border: 1px solid var(--border2); padding: 6px 12px; border-radius: 6px;
+  transition: all 0.2s;
+}
+.nav-admin:hover { color: var(--muted); border-color: var(--muted); }
+.hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 4px; }
+.hamburger span { width: 22px; height: 1.5px; background: var(--text); display: block; transition: all 0.3s; }
 
-  /* APP */
-  #appScreen{display:none;}
-  nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:100;flex-wrap:wrap;gap:10px;}
-  .nav-logo{font-family:var(--font-display);font-style:italic;font-size:20px;color:var(--accent);}
-  .nav-logo span{color:var(--muted);font-style:normal;font-size:11px;margin-left:6px;font-family:var(--font-mono);}
-  .nav-tabs{display:flex;gap:4px;}
-  .tab{padding:7px 14px;font-size:12px;font-family:var(--font-mono);background:none;border:1px solid transparent;border-radius:6px;color:var(--muted);cursor:pointer;transition:all .15s;}
-  .tab:hover{color:var(--text);border-color:var(--border2);}
-  .tab.active{background:var(--accent);color:#0e0e0e;border-color:var(--accent);font-weight:500;}
-  .nav-right{display:flex;align-items:center;gap:8px;}
-  .icon-btn{padding:7px 12px;font-size:12px;font-family:var(--font-mono);background:none;border:1px solid var(--border2);border-radius:6px;color:var(--muted);cursor:pointer;transition:all .15s;}
-  .icon-btn:hover{border-color:var(--accent);color:var(--accent);}
-  .user-pill{display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--muted);}
-  .user-av{width:22px;height:22px;border-radius:50%;object-fit:cover;}
+/* ── HERO ── */
+#hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 120px 24px 80px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(200,240,96,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 20% 80%, rgba(200,240,96,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hero-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border: 1px solid var(--border2);
+  border-radius: 20px; font-size: 11px; color: var(--muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 32px;
+  animation: fadeUp 0.8s ease both;
+}
+.hero-tag-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(52px, 9vw, 100px);
+  font-weight: 300;
+  line-height: 0.95;
+  letter-spacing: -2px;
+  margin-bottom: 24px;
+  animation: fadeUp 0.8s 0.1s ease both;
+}
+.hero-title em { color: var(--accent); font-style: italic; display: block; }
+.hero-sub {
+  font-size: 14px; color: var(--muted); max-width: 420px;
+  line-height: 1.8; margin-bottom: 44px;
+  animation: fadeUp 0.8s 0.2s ease both;
+}
+.hero-actions {
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+  animation: fadeUp 0.8s 0.3s ease both;
+}
+.btn-wa {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 14px 28px; background: var(--accent); color: #0a0a0a;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+  border-radius: 8px; text-decoration: none; transition: all 0.2s;
+}
+.btn-wa:hover { background: var(--accent2); transform: translateY(-1px); }
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 28px; border: 1px solid var(--border2); color: var(--muted);
+  font-family: var(--font-mono); font-size: 13px;
+  border-radius: 8px; text-decoration: none; transition: all 0.2s;
+}
+.btn-ghost:hover { border-color: var(--text); color: var(--text); }
+.hero-scroll {
+  position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; color: var(--muted2); letter-spacing: 0.1em;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  animation: fadeUp 0.8s 0.5s ease both;
+}
+.scroll-line { width: 1px; height: 40px; background: linear-gradient(to bottom, var(--muted2), transparent); animation: scrollAnim 1.5s ease infinite; }
+@keyframes scrollAnim { 0%{transform:scaleY(0);transform-origin:top} 50%{transform:scaleY(1);transform-origin:top} 51%{transform:scaleY(1);transform-origin:bottom} 100%{transform:scaleY(0);transform-origin:bottom} }
 
-  /* PAGES */
-  .page{display:none;padding:28px 24px;max-width:900px;margin:0 auto;}
-  .page.active{display:block;}
-  .section-title{font-family:var(--font-display);font-size:28px;font-weight:300;color:var(--text);margin-bottom:4px;}
-  .section-title em{color:var(--accent);font-style:italic;}
-  .section-sub{font-size:12px;color:var(--muted);margin-bottom:28px;}
+/* ── STATS BAR ── */
+.stats-bar {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 28px 40px;
+  display: flex; justify-content: center; gap: 0;
+}
+.stat {
+  flex: 1; max-width: 200px; text-align: center;
+  padding: 0 24px; border-right: 1px solid var(--border);
+}
+.stat:last-child { border-right: none; }
+.stat-num { font-family: var(--font-display); font-size: 36px; font-weight: 600; color: var(--accent); line-height: 1; }
+.stat-lbl { font-size: 11px; color: var(--muted); margin-top: 6px; letter-spacing: 0.05em; }
 
-  /* CARD */
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
-  .card-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-  .card-lbl::after{content:'';flex:1;height:1px;background:var(--border);}
+/* ── SECTIONS ── */
+section { padding: 100px 40px; max-width: 1100px; margin: 0 auto; }
+.section-tag {
+  font-size: 10px; color: var(--accent); text-transform: uppercase;
+  letter-spacing: 0.15em; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+}
+.section-tag::before { content: ''; width: 24px; height: 1px; background: var(--accent); }
+.section-title { font-family: var(--font-display); font-size: clamp(32px, 5vw, 52px); font-weight: 300; line-height: 1.1; margin-bottom: 16px; }
+.section-title em { color: var(--accent); font-style: italic; }
+.section-sub { font-size: 13px; color: var(--muted); line-height: 1.8; max-width: 500px; }
 
-  /* FORM */
-  textarea{width:100%;height:160px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:14px;font-family:var(--font-mono);font-size:13px;color:var(--text);resize:vertical;line-height:1.7;outline:none;transition:border-color .15s;}
-  textarea:focus{border-color:var(--accent);}
-  textarea::placeholder{color:var(--muted2);}
-  .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  .field{display:flex;flex-direction:column;gap:6px;}
-  .field.full{grid-column:1/-1;}
-  .field label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
-  .field input,.field select{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;font-family:var(--font-mono);font-size:13px;color:var(--text);outline:none;transition:border-color .15s;}
-  .field input:focus,.field select:focus{border-color:var(--accent);}
-  .field select option{background:var(--surface2);}
-  .btn{padding:10px 20px;font-size:12px;font-family:var(--font-mono);border-radius:8px;cursor:pointer;transition:all .15s;font-weight:500;border:none;}
-  .btn-p{background:var(--accent);color:#0e0e0e;}
-  .btn-p:hover{background:var(--accent2);}
-  .btn-p:disabled{opacity:.4;cursor:not-allowed;}
-  .btn-g{background:none;border:1px solid var(--border2);color:var(--muted);}
-  .btn-g:hover{border-color:var(--text);color:var(--text);}
+/* ── GALLERY ── */
+#gallery { padding-top: 80px; }
+.gallery-intro { margin-bottom: 48px; }
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: auto;
+  gap: 12px;
+}
+.gallery-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+.gallery-item:nth-child(1) { grid-column: span 7; grid-row: span 2; aspect-ratio: unset; min-height: 400px; }
+.gallery-item:nth-child(2) { grid-column: span 5; }
+.gallery-item:nth-child(3) { grid-column: span 5; }
+.gallery-item:nth-child(4) { grid-column: span 4; }
+.gallery-item:nth-child(5) { grid-column: span 4; }
+.gallery-item:nth-child(6) { grid-column: span 4; }
 
-  /* STATUS */
-  .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;}
-  .pill.ok{background:rgba(74,222,128,.1);color:var(--success);border:1px solid rgba(74,222,128,.2);}
-  .pill.err{background:rgba(255,92,92,.1);color:var(--danger);border:1px solid rgba(255,92,92,.2);}
-  .pill.info{background:rgba(96,165,250,.1);color:var(--info);border:1px solid rgba(96,165,250,.2);}
+.gallery-img {
+  width: 100%; height: 100%; min-height: 200px;
+  object-fit: cover; display: block;
+  transition: transform 0.5s ease;
+  background: var(--surface2);
+}
+.gallery-item:hover .gallery-img { transform: scale(1.04); }
+.gallery-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+  opacity: 0; transition: opacity 0.3s;
+  display: flex; align-items: flex-end; padding: 20px;
+}
+.gallery-item:hover .gallery-overlay { opacity: 1; }
+.gallery-label { font-size: 12px; color: var(--text); }
 
-  /* TABLE */
-  .tbl-head{display:grid;grid-template-columns:1fr 110px 80px 130px;gap:8px;padding:8px 16px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);}
-  .tbl-row{display:grid;grid-template-columns:1fr 110px 80px 130px;gap:8px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);transition:background .1s;}
-  .tbl-row:hover{background:var(--surface2);}
-  .tbl-row:last-child{border-bottom:none;}
-  .e-name{font-size:13px;font-weight:500;}
-  .e-meta{font-size:11px;color:var(--muted);margin-top:2px;}
-  .e-cell{font-size:12px;color:var(--muted);}
-  .badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:11px;}
-  .b2{background:rgba(96,165,250,.15);color:var(--info);}
-  .b3{background:rgba(200,240,96,.15);color:var(--accent);}
-  .b4{background:rgba(167,139,250,.15);color:#c4b5fd;}
+/* Placeholder gallery tiles */
+.gallery-placeholder {
+  width: 100%; height: 100%; min-height: 200px;
+  background: var(--surface2);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; color: var(--muted2);
+}
+.gallery-placeholder .icon { font-size: 28px; opacity: 0.4; }
+.gallery-placeholder .lbl { font-size: 11px; letter-spacing: 0.05em; }
 
-  /* FILTER */
-  .filter-row{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
-  .m-btn{padding:6px 12px;font-size:11px;font-family:var(--font-mono);background:none;border:1px solid var(--border2);border-radius:6px;color:var(--muted);cursor:pointer;transition:all .15s;}
-  .m-btn:hover{border-color:var(--text);color:var(--text);}
-  .m-btn.active{background:var(--accent);color:#0e0e0e;border-color:var(--accent);font-weight:500;}
+/* ── PACKAGES ── */
+#packages { border-top: 1px solid var(--border); }
+.packages-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 52px; }
+.pkg-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px 28px;
+  position: relative;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.pkg-card:hover { border-color: var(--border2); transform: translateY(-3px); }
+.pkg-card.featured { border-color: var(--accent); }
+.pkg-card.featured::before {
+  content: 'Most Popular';
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  background: var(--accent); color: #0a0a0a;
+  font-size: 10px; font-weight: 500; padding: 4px 14px; border-radius: 20px;
+  letter-spacing: 0.05em; white-space: nowrap;
+}
+.pkg-hours {
+  font-family: var(--font-display);
+  font-size: 48px; font-weight: 600; color: var(--accent);
+  line-height: 1; margin-bottom: 4px;
+}
+.pkg-hours span { font-size: 16px; color: var(--muted); font-family: var(--font-mono); font-weight: 400; }
+.pkg-name { font-size: 12px; color: var(--muted); margin-bottom: 24px; letter-spacing: 0.05em; text-transform: uppercase; }
+.pkg-price { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin-bottom: 6px; }
+.pkg-price-note { font-size: 11px; color: var(--muted); margin-bottom: 28px; }
+.pkg-divider { height: 1px; background: var(--border); margin-bottom: 24px; }
+.pkg-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
+.pkg-features li { display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.pkg-features li::before { content: '✓'; color: var(--accent); font-size: 11px; margin-top: 1px; flex-shrink: 0; }
+.pkg-btn {
+  display: block; text-align: center;
+  padding: 12px; border-radius: 8px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  text-decoration: none; transition: all 0.2s;
+}
+.pkg-btn-solid { background: var(--accent); color: #0a0a0a; }
+.pkg-btn-solid:hover { background: var(--accent2); }
+.pkg-btn-outline { border: 1px solid var(--border2); color: var(--muted); }
+.pkg-btn-outline:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* DASHBOARD */
-  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
-  .metric{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
-  .m-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
-  .m-val{font-family:var(--font-display);font-size:28px;font-weight:600;line-height:1;}
-  .m-val.ac{color:var(--accent);}
-  .m-sub{font-size:11px;color:var(--muted);margin-top:6px;}
+/* ── ADDONS ── */
+.addons { margin-top: 40px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px; }
+.addons-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 20px; }
+.addons-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.addon { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.addon:last-child { border-bottom: none; }
+.addon-name { color: var(--text); }
+.addon-price { color: var(--accent); font-weight: 500; }
 
-  /* BAR CHART */
-  .bars{display:flex;align-items:flex-end;gap:6px;height:120px;}
-  .b-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;}
-  .bar{width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px;opacity:.85;transition:height .4s ease;}
-  .bar:hover{opacity:1;}
-  .b-lbl{font-size:9px;color:var(--muted);text-align:center;}
+/* ── HOW IT WORKS ── */
+#how { border-top: 1px solid var(--border); }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 52px; position: relative; }
+.steps::before {
+  content: ''; position: absolute;
+  top: 24px; left: 12.5%; right: 12.5%;
+  height: 1px; background: var(--border);
+}
+.step { text-align: center; padding: 0 16px; position: relative; }
+.step-num {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--accent);
+  margin: 0 auto 20px; position: relative; z-index: 1;
+}
+.step-title { font-size: 13px; font-weight: 500; margin-bottom: 8px; color: var(--text); }
+.step-desc { font-size: 12px; color: var(--muted); line-height: 1.7; }
 
-  /* CALENDAR */
-  .cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
-  .cal-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;transition:border-color .15s;}
-  .cal-card:hover{border-color:var(--border2);}
-  .cal-date{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--accent);}
-  .cal-client{font-size:14px;font-weight:500;margin:6px 0 2px;}
-  .cal-detail{font-size:12px;color:var(--muted);line-height:1.7;}
-  .cal-btn{margin-top:12px;padding:6px 12px;font-size:11px;font-family:var(--font-mono);border-radius:6px;cursor:pointer;border:1px solid var(--border2);background:none;color:var(--muted);transition:all .15s;}
-  .cal-btn:hover{border-color:var(--accent);color:var(--accent);}
+/* ── TESTIMONIALS ── */
+#testimonials { border-top: 1px solid var(--border); }
+.testi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 52px; }
+.testi-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 28px;
+}
+.testi-stars { color: var(--accent); font-size: 13px; margin-bottom: 16px; letter-spacing: 2px; }
+.testi-text { font-size: 13px; color: var(--muted); line-height: 1.8; margin-bottom: 20px; font-style: italic; }
+.testi-author { display: flex; align-items: center; gap: 12px; }
+.testi-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--accent); font-family: var(--font-display);
+}
+.testi-name { font-size: 12px; font-weight: 500; color: var(--text); }
+.testi-event { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-  /* MISC */
-  .empty{text-align:center;padding:48px 20px;color:var(--muted);font-size:13px;}
-  .empty-icon{font-size:32px;margin-bottom:12px;}
-  @keyframes spin{to{transform:rotate(360deg);}}
-  .spinner{width:14px;height:14px;border:2px solid rgba(200,240,96,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;}
-  #toast{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
-  .t-item{padding:12px 18px;border-radius:8px;font-size:13px;font-family:var(--font-mono);animation:su .25s ease;max-width:320px;}
-  .t-item.ok{background:var(--success);color:#0e0e0e;}
-  .t-item.err{background:var(--danger);color:#fff;}
-  .t-item.info{background:var(--info);color:#0e0e0e;}
-  @keyframes su{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-  @media(max-width:640px){
-    .fields{grid-template-columns:1fr;}
-    .metrics{grid-template-columns:1fr 1fr;}
-    .tbl-head,.tbl-row{grid-template-columns:1fr 80px;}
-    .tbl-head .c2,.tbl-head .c3,.tbl-row .c2,.tbl-row .c3{display:none;}
-    .nav-tabs .tab{padding:6px 10px;font-size:11px;}
-  }
+/* ── CTA SECTION ── */
+#cta {
+  border-top: 1px solid var(--border);
+  text-align: center; padding: 120px 40px;
+  position: relative; overflow: hidden;
+  max-width: 100%;
+}
+.cta-bg {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 60% 80% at 50% 50%, rgba(200,240,96,0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta-title { font-family: var(--font-display); font-size: clamp(36px, 6vw, 64px); font-weight: 300; line-height: 1.1; margin-bottom: 20px; }
+.cta-title em { color: var(--accent); font-style: italic; }
+.cta-sub { font-size: 14px; color: var(--muted); margin-bottom: 40px; line-height: 1.8; }
+.cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 48px 40px 32px;
+  display: flex; flex-wrap: wrap;
+  justify-content: space-between; align-items: flex-start;
+  gap: 32px; max-width: 1100px; margin: 0 auto;
+}
+.footer-brand .logo { font-family: var(--font-display); font-style: italic; font-size: 20px; color: var(--accent); margin-bottom: 8px; }
+.footer-brand p { font-size: 12px; color: var(--muted); line-height: 1.7; max-width: 240px; }
+.footer-links h4 { font-size: 11px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
+.footer-links a { display: block; font-size: 12px; color: var(--muted); text-decoration: none; margin-bottom: 8px; transition: color 0.2s; }
+.footer-links a:hover { color: var(--text); }
+.footer-bottom {
+  border-top: 1px solid var(--border);
+  padding: 20px 40px; max-width: 1100px; margin: 0 auto;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; color: var(--muted2); flex-wrap: wrap; gap: 8px;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+  nav { padding: 16px 20px; }
+  .nav-links { display: none; }
+  .nav-links.open { display: flex; flex-direction: column; position: fixed; top: 60px; left: 0; right: 0; background: var(--bg); border-bottom: 1px solid var(--border); padding: 20px; gap: 16px; }
+  .hamburger { display: flex; }
+  section { padding: 64px 20px; }
+  .stats-bar { padding: 20px; gap: 0; flex-wrap: wrap; }
+  .stat { min-width: 50%; border-right: none; border-bottom: 1px solid var(--border); padding: 16px; }
+  .stat:nth-child(odd) { border-right: 1px solid var(--border); }
+  .stat:last-child { border-bottom: none; }
+  .gallery-grid { grid-template-columns: 1fr 1fr; }
+  .gallery-item:nth-child(n) { grid-column: span 1; grid-row: span 1; min-height: 160px; }
+  .gallery-item:nth-child(1) { grid-column: span 2; min-height: 220px; }
+  .packages-grid { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: 1fr 1fr; gap: 32px; }
+  .steps::before { display: none; }
+  .testi-grid { grid-template-columns: 1fr; }
+  #cta { padding: 80px 20px; }
+  footer { padding: 40px 20px 24px; }
+  .footer-bottom { padding: 20px; }
+}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="loginScreen">
-  <div class="login-box">
-    <div class="login-logo">Boxy Studio</div>
-    <div class="login-tag">photobooth booking system</div>
-    <div class="login-div">sign in to continue</div>
-    <button id="gSignIn" onclick="signIn()">
-      <svg width="18" height="18" viewBox="0 0 24 24">
-        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-      </svg>
-      Sign in with Google
-    </button>
+<!-- NAV -->
+<nav id="navbar">
+  <a href="#" class="nav-logo">Boxy Studio</a>
+  <div class="nav-links" id="navLinks">
+    <a href="#gallery">Gallery</a>
+    <a href="#packages">Packages</a>
+    <a href="#how">How It Works</a>
+    <a href="#testimonials">Reviews</a>
+    <a href="https://wa.me/60147192316?text=Hi%20Boxy%20Studio!%20I%27d%20like%20to%20enquire%20about%20photobooth%20rental." target="_blank" class="nav-cta">WhatsApp Us</a>
+    <a href="/admin" class="nav-admin">Admin ↗</a>
+  </div>
+  <div class="hamburger" id="hamburger" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-tag"><span class="hero-tag-dot"></span>Available across Klang Valley & beyond</div>
+  <h1 class="hero-title">
+    Capture every<br>
+    <em>unforgettable</em><br>moment
+  </h1>
+  <p class="hero-sub">Premium photobooth rental for weddings, corporate dinners & celebrations. Unlimited prints, custom templates, 2 professional crew.</p>
+  <div class="hero-actions">
+    <a href="https://wa.me/60147192316?text=Hi%20Boxy%20Studio!%20I%27d%20like%20to%20book%20a%20photobooth%20for%20my%20event." target="_blank" class="btn-wa">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      WhatsApp Us
+    </a>
+    <a href="#packages" class="btn-ghost">View Packages ↓</a>
+  </div>
+  <div class="hero-scroll">
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-num">200+</div><div class="stat-lbl">Events completed</div></div>
+  <div class="stat"><div class="stat-num">5★</div><div class="stat-lbl">Average rating</div></div>
+  <div class="stat"><div class="stat-num">∞</div><div class="stat-lbl">Unlimited prints</div></div>
+  <div class="stat"><div class="stat-num">2</div><div class="stat-lbl">Crew per event</div></div>
+</div>
+
+<!-- GALLERY -->
+<section id="gallery">
+  <div class="gallery-intro reveal">
+    <div class="section-tag">Our Work</div>
+    <h2 class="section-title">Moments we've <em>captured</em></h2>
+    <p class="section-sub">From intimate weddings to grand gala dinners — every event is a story worth printing.</p>
+  </div>
+  <div class="gallery-grid reveal">
+    <div class="gallery-item">
+      <div class="gallery-placeholder">
+        <div class="icon">📸</div>
+        <div class="lbl">Wedding — Shah Alam</div>
+      </div>
+      <div class="gallery-overlay"><span class="gallery-label">Wedding Reception · Shah Alam</span></div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-placeholder">
+        <div class="icon">✨</div>
+        <div class="lbl">Gala Dinner</div>
+      </div>
+      <div class="gallery-overlay"><span class="gallery-label">Corporate Gala Dinner</span></div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-placeholder">
+        <div class="icon">🎂</div>
+        <div class="lbl">Birthday Party</div>
+      </div>
+      <div class="gallery-overlay"><span class="gallery-label">Birthday Celebration</span></div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-placeholder">
+        <div class="icon">💍</div>
+        <div class="lbl">Akad Nikah</div>
+      </div>
+      <div class="gallery-overlay"><span class="gallery-label">Akad Nikah · Kajang</span></div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-placeholder">
+        <div class="icon">🎓</div>
+        <div class="lbl">Graduation Dinner</div>
+      </div>
+      <div class="gallery-overlay"><span class="gallery-label">Graduation Dinner · UM</span></div>
+    </div>
+    <div class="gallery-item">
+      <div class="gallery-placeholder">
+        <div class="icon">🌙</div>
+        <div class="lbl">Open House</div>
+      </div>
+      <div class="gallery-overlay"><span class="gallery-label">Hari Raya Open House</span></div>
+    </div>
+  </div>
+  <p style="text-align:center;margin-top:20px;font-size:11px;color:var(--muted2);">Replace placeholders with your actual photos in the HTML file</p>
+</section>
+
+<!-- PACKAGES -->
+<section id="packages">
+  <div class="reveal">
+    <div class="section-tag">Pricing</div>
+    <h2 class="section-title">Simple, transparent <em>packages</em></h2>
+    <p class="section-sub">All packages include unlimited soft & hard copy photostrips, custom template, backdrop, props and 2 crew.</p>
+  </div>
+  <div class="packages-grid reveal">
+
+    <!-- 2 JAM -->
+    <div class="pkg-card">
+      <div class="pkg-hours">2 <span>hours</span></div>
+      <div class="pkg-name">Standard</div>
+      <div class="pkg-price">From RM400</div>
+      <div class="pkg-price-note">+ transport (RM0.70/km)</div>
+      <div class="pkg-divider"></div>
+      <ul class="pkg-features">
+        <li>Unlimited photostrip 2×6</li>
+        <li>Free custom template</li>
+        <li>Backdrop & props</li>
+        <li>Soft copy & hard copy</li>
+        <li>2 crew on event day</li>
+      </ul>
+      <a href="https://wa.me/60147192316?text=Hi!%20I%27m%20interested%20in%20the%202-hour%20package." target="_blank" class="pkg-btn pkg-btn-outline">WhatsApp Us</a>
+    </div>
+
+    <!-- 3 JAM -->
+    <div class="pkg-card featured">
+      <div class="pkg-hours">3 <span>hours</span></div>
+      <div class="pkg-name">Popular</div>
+      <div class="pkg-price">From RM600</div>
+      <div class="pkg-price-note">+ transport (RM0.70/km)</div>
+      <div class="pkg-divider"></div>
+      <ul class="pkg-features">
+        <li>Unlimited photostrip 2×6</li>
+        <li>Free custom template</li>
+        <li>Backdrop & props</li>
+        <li>Soft copy & hard copy</li>
+        <li>2 crew on event day</li>
+      </ul>
+      <a href="https://wa.me/60147192316?text=Hi!%20I%27m%20interested%20in%20the%203-hour%20package." target="_blank" class="pkg-btn pkg-btn-solid">WhatsApp Us</a>
+    </div>
+
+    <!-- 4 JAM -->
+    <div class="pkg-card">
+      <div class="pkg-hours">4 <span>hours</span></div>
+      <div class="pkg-name">Premium</div>
+      <div class="pkg-price">From RM750</div>
+      <div class="pkg-price-note">+ transport (RM0.70/km) · includes guestbook</div>
+      <div class="pkg-divider"></div>
+      <ul class="pkg-features">
+        <li>Unlimited photostrip 2×6</li>
+        <li>Free custom template</li>
+        <li>Backdrop & props</li>
+        <li>Soft copy & hard copy</li>
+        <li>2 crew on event day</li>
+        <li>Guestbook included ✦</li>
+      </ul>
+      <a href="https://wa.me/60147192316?text=Hi!%20I%27m%20interested%20in%20the%204-hour%20package." target="_blank" class="pkg-btn pkg-btn-outline">WhatsApp Us</a>
+    </div>
+  </div>
+
+  <!-- ADD-ONS -->
+  <div class="addons reveal">
+    <div class="addons-title">Add-ons available</div>
+    <div class="addons-grid">
+      <div class="addon"><span class="addon-name">Extra hour</span><span class="addon-price">RM200</span></div>
+      <div class="addon"><span class="addon-name">Upgrade to 4×6 size</span><span class="addon-price">RM130</span></div>
+      <div class="addon"><span class="addon-name">Guestbook</span><span class="addon-price">RM40</span></div>
+      <div class="addon"><span class="addon-name">Keychain prints</span><span class="addon-price">RM1/pcs</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="reveal">
+    <div class="section-tag">Process</div>
+    <h2 class="section-title">How it <em>works</em></h2>
+    <p class="section-sub">Booking your photobooth is simple — we handle everything on the day.</p>
+  </div>
+  <div class="steps reveal">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-title">WhatsApp us</div>
+      <div class="step-desc">Tell us your event date, location and package preference.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-title">Confirm & deposit</div>
+      <div class="step-desc">Pay a small deposit to lock in your date. We handle the rest.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-title">We set up</div>
+      <div class="step-desc">Our crew arrives early to set up — backdrop, booth, props, all ready.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-title">Enjoy & print!</div>
+      <div class="step-desc">Guests snap, print and take home unlimited photostrips all night.</div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section id="testimonials">
+  <div class="reveal">
+    <div class="section-tag">Reviews</div>
+    <h2 class="section-title">What our clients <em>say</em></h2>
+  </div>
+  <div class="testi-grid reveal">
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">"Sangat professional dan friendly! Semua tetamu suka sangat dengan photobooth. Gambar pun cantik, template lawa. Highly recommended!"</p>
+      <div class="testi-author">
+        <div class="testi-avatar">SA</div>
+        <div><div class="testi-name">Siti Aishah</div><div class="testi-event">Wedding · Shah Alam</div></div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">"The team was punctual, setup was neat and guests loved the unlimited prints. Will definitely book again for our next event!"</p>
+      <div class="testi-author">
+        <div class="testi-avatar">JL</div>
+        <div><div class="testi-name">Jason Lim</div><div class="testi-event">Corporate Dinner · KL</div></div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">"Crew sangat helpful, props banyak pilihan dan template boleh customise. Harga berpatutan, servis tip top. Terima kasih Boxy Studio!"</p>
+      <div class="testi-author">
+        <div class="testi-avatar">NZ</div>
+        <div><div class="testi-name">Nur Zulaikha</div><div class="testi-event">Wedding · Nilai</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div id="cta">
+  <div class="cta-bg"></div>
+  <h2 class="cta-title reveal">Ready to make your<br>event <em>memorable?</em></h2>
+  <p class="cta-sub reveal">Drop us a WhatsApp and we'll get back to you within the hour.</p>
+  <div class="cta-actions reveal">
+    <a href="https://wa.me/60147192316?text=Hi%20Boxy%20Studio!%20I%27d%20like%20to%20enquire%20about%20photobooth%20rental%20for%20my%20event." target="_blank" class="btn-wa">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      WhatsApp Us Now
+    </a>
+    <a href="#packages" class="btn-ghost">See Packages</a>
   </div>
 </div>
 
-<!-- APP -->
-<div id="appScreen">
-  <nav>
-    <div class="nav-logo">Boxy Studio <span>booking system</span></div>
-    <div class="nav-tabs">
-      <button class="tab active" onclick="showPage('add',this)">+ Add</button>
-      <button class="tab" onclick="showPage('bookings',this)">Bookings</button>
-      <button class="tab" onclick="showPage('calendar',this)">Calendar</button>
-      <button class="tab" onclick="showPage('dashboard',this)">Dashboard</button>
-    </div>
-    <div class="nav-right">
-      <button class="icon-btn" onclick="loadSheet()" id="syncBtn">↻ Sync</button>
-      <div class="user-pill">
-        <img id="uAv" class="user-av" src="" alt="" style="display:none;">
-        <span id="uName">—</span>
-      </div>
-      <button class="icon-btn" onclick="signOut()">Sign out</button>
-    </div>
-  </nav>
-
-  <!-- ADD -->
-  <div class="page active" id="page-add">
-    <p class="section-title">Add <em>new booking</em></p>
-    <p class="section-sub">Paste the customer's WhatsApp reply — Claude extracts the details automatically.</p>
-    <div class="card">
-      <div class="card-lbl">Step 1 — WhatsApp message</div>
-      <textarea id="waText" placeholder="Paste WhatsApp text here...
-
-Contoh / Example:
-Nama: Siti Aishah
-Jenis Majlis: Wedding
-Tarikh: 15/08/2026
-Pakej: 3 JAM
-Masa: 12.00pm - 3.00pm
-Harga: RM600 (depo 100)
-Lokasi: Dewan Seri Kenanga, Shah Alam"></textarea>
-      <div style="display:flex;align-items:center;gap:12px;margin-top:12px;">
-        <button class="btn btn-p" onclick="parseEntry()" id="parseBtn">Extract details →</button>
-        <span id="parseStatus"></span>
-      </div>
-    </div>
-    <div class="card" id="reviewCard" style="display:none;">
-      <div class="card-lbl">Step 2 — Review & confirm</div>
-      <div class="fields">
-        <div class="field"><label>Client name</label><input id="f_client" type="text"></div>
-        <div class="field"><label>Event type</label><input id="f_event" type="text"></div>
-        <div class="field"><label>Date (DD/MM/YYYY)</label><input id="f_date" type="text"></div>
-        <div class="field"><label>Package</label>
-          <select id="f_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select>
-        </div>
-        <div class="field"><label>Time (e.g. 7.00pm-9.00pm)</label><input id="f_time" type="text"></div>
-        <div class="field"><label>Price (e.g. RM600 (depo 100))</label><input id="f_price" type="text"></div>
-        <div class="field full"><label>Location</label><input id="f_loc" type="text"></div>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:16px;align-items:center;">
-        <button class="btn btn-p" onclick="submitEntry()" id="submitBtn">Save to Google Sheet ↑</button>
-        <button class="btn btn-g" onclick="cancelEntry()">Cancel</button>
-        <span id="submitStatus"></span>
-      </div>
-    </div>
+<!-- FOOTER -->
+<footer>
+  <div class="footer-brand">
+    <div class="logo">Boxy Studio</div>
+    <p>Premium photobooth rental for weddings, dinners & events across Malaysia.</p>
   </div>
-
-  <!-- BOOKINGS -->
-  <div class="page" id="page-bookings">
-    <p class="section-title">All <em>bookings</em></p>
-    <p class="section-sub">Live from your Google Sheet.</p>
-    <div class="filter-row" id="monthFilters"></div>
-    <div class="card" style="padding:0;">
-      <div id="bookingsTable"><div class="empty"><div class="empty-icon">📋</div>Click Sync to load.</div></div>
-    </div>
+  <div class="footer-links">
+    <h4>Navigate</h4>
+    <a href="#gallery">Gallery</a>
+    <a href="#packages">Packages</a>
+    <a href="#how">How It Works</a>
+    <a href="#testimonials">Reviews</a>
   </div>
-
-  <!-- CALENDAR -->
-  <div class="page" id="page-calendar">
-    <p class="section-title">Upcoming <em>schedule</em></p>
-    <p class="section-sub">Your next bookings — click to add to Google Calendar.</p>
-    <div class="cal-grid" id="calGrid"><div class="empty"><div class="empty-icon">📅</div>Click Sync to load.</div></div>
+  <div class="footer-links">
+    <h4>Contact</h4>
+    <a href="https://wa.me/60147192316" target="_blank">+60 14-719 2316</a>
+    <a href="mailto:hello@boxystudio.my">hello@boxystudio.my</a>
+    <a href="https://instagram.com/boxystudio.my" target="_blank">@boxystudio.my</a>
   </div>
-
-  <!-- DASHBOARD -->
-  <div class="page" id="page-dashboard">
-    <p class="section-title">Revenue <em>dashboard</em></p>
-    <p class="section-sub">Your business at a glance.</p>
-    <div class="metrics">
-      <div class="metric"><div class="m-lbl">Total revenue</div><div class="m-val ac" id="m-total">—</div><div class="m-sub">all time</div></div>
-      <div class="metric"><div class="m-lbl">This month</div><div class="m-val" id="m-month">—</div><div class="m-sub" id="m-mlbl">—</div></div>
-      <div class="metric"><div class="m-lbl">Total bookings</div><div class="m-val" id="m-count">—</div><div class="m-sub">confirmed</div></div>
-      <div class="metric"><div class="m-lbl">Avg per booking</div><div class="m-val" id="m-avg">—</div><div class="m-sub">estimated</div></div>
-      <div class="metric"><div class="m-lbl">Top package</div><div class="m-val" id="m-pkg" style="font-size:18px;">—</div><div class="m-sub" id="m-pkgs">—</div></div>
-      <div class="metric"><div class="m-lbl">Top event type</div><div class="m-val" id="m-ev" style="font-size:18px;">—</div><div class="m-sub" id="m-evs">—</div></div>
-    </div>
-    <div class="card">
-      <div class="card-lbl">Monthly revenue (last 8 months)</div>
-      <div class="bars" id="barChart"></div>
-    </div>
-    <div class="card">
-      <div class="card-lbl">Deposit tracker</div>
-      <div style="display:flex;gap:24px;flex-wrap:wrap;padding-top:4px;" id="depoStats"></div>
-    </div>
+  <div class="footer-links">
+    <h4>Coverage</h4>
+    <a href="#">Klang Valley</a>
+    <a href="#">Selangor</a>
+    <a href="#">Negeri Sembilan</a>
+    <a href="#">& surrounding areas</a>
   </div>
+</footer>
+<div class="footer-bottom">
+  <span>© 2026 Boxy Studio. All rights reserved.</span>
+  <a href="/admin" style="color:var(--muted2);text-decoration:none;">Admin Portal ↗</a>
 </div>
-
-<div id="toast"></div>
 
 <script>
-const CLIENT_ID   = '548211831752-eear5f1hk2ag8edl4et7mv2efh9puht1.apps.googleusercontent.com';
-const SHEET_ID    = '1wH8LynLzQcGbITitr7HlnwCxBTUZyjhNemzE2Imwuww';
-const SHEET_NAME  = 'Client Record';
-const SCOPES      = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile';
-const MODEL       = 'claude-sonnet-4-20250514';
-
-let token = null, allBookings = [], activeMonth = 'all', tokenClient = null;
-
-// ── AUTH ──────────────────────────────────────────────────────────────────────
-function initG() {
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID, scope: SCOPES,
-    callback: r => {
-      if (r.error) { toast('Sign-in error: ' + r.error, 'err'); return; }
-      token = r.access_token;
-      fetchUser();
-    }
-  });
-}
-function signIn() {
-  if (!window.google) { toast('Google library loading, try again.', 'err'); return; }
-  if (!tokenClient) initG();
-  tokenClient.requestAccessToken({ prompt: 'consent' });
-}
-function signOut() {
-  if (token) google.accounts.oauth2.revoke(token);
-  token = null; allBookings = [];
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('appScreen').style.display   = 'none';
-  toast('Signed out.', 'info');
-}
-async function fetchUser() {
-  try {
-    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers:{ Authorization:'Bearer '+token } });
-    const u = await r.json();
-    document.getElementById('uName').textContent = u.given_name || u.name || u.email || '';
-    const av = document.getElementById('uAv');
-    if (u.picture) { av.src = u.picture; av.style.display = 'block'; }
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('appScreen').style.display   = 'block';
-    loadSheet();
-  } catch(e) { toast('Could not load user info.', 'err'); }
-}
-window.addEventListener('load', () => {
-  const s = document.querySelector('script[src*="gsi"]');
-  if (s) s.addEventListener('load', () => setTimeout(initG, 200));
-  else setTimeout(initG, 500);
+// Navbar scroll effect
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
 });
 
-// ── NAV ───────────────────────────────────────────────────────────────────────
-function showPage(name, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (name==='bookings') renderBookings();
-  if (name==='calendar') renderCalendar();
-  if (name==='dashboard') renderDashboard();
+// Mobile menu
+function toggleMenu() {
+  document.getElementById('navLinks').classList.toggle('open');
 }
 
-// ── TOAST ─────────────────────────────────────────────────────────────────────
-function toast(msg, type='ok') {
-  const el = document.createElement('div');
-  el.className = 't-item ' + type; el.textContent = msg;
-  document.getElementById('toast').appendChild(el);
-  setTimeout(() => el.remove(), 3500);
-}
-function setSt(id, html) { document.getElementById(id).innerHTML = html; }
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-// ── SHEET ─────────────────────────────────────────────────────────────────────
-async function loadSheet() {
-  if (!token) { toast('Sign in first.', 'err'); return; }
-  const btn = document.getElementById('syncBtn');
-  btn.textContent = '↻ Syncing...';
-  try {
-    const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}`,
-      { headers:{ Authorization:'Bearer '+token } }
-    );
-    const d = await r.json();
-    if (d.error) throw new Error(d.error.message);
-    allBookings = (d.values||[]).slice(1).filter(r=>r[0]&&r[0].trim()).map(r=>({
-      client:r[0]||'', event:r[1]||'', date:r[2]||'',
-      pkg:r[3]||'', time:r[4]||'', price:r[5]||'', location:r[6]||''
-    }));
-    toast(`Synced — ${allBookings.length} bookings`, 'ok');
-    const pg = document.querySelector('.page.active');
-    if (pg) {
-      const id = pg.id.replace('page-','');
-      if(id==='bookings') renderBookings();
-      if(id==='calendar') renderCalendar();
-      if(id==='dashboard') renderDashboard();
-    }
-  } catch(e) { toast('Sync failed: '+e.message, 'err'); }
-  btn.textContent = '↻ Sync';
-}
-
-// ── PARSE ─────────────────────────────────────────────────────────────────────
-function parseEntry() {
-  const txt = document.getElementById('waText').value.trim();
-  if (!txt) { toast('Paste a message first.', 'err'); return; }
-
-  // ── FIELD EXTRACTORS ──────────────────────────────────────────────────────
-  const getField = (patterns, text) => {
-    for (const pat of patterns) {
-      const m = text.match(pat);
-      if (m && m[1] && m[1].trim() && m[1].trim() !== '-') return m[1].trim();
-    }
-    return '';
-  };
-
-  const lines = txt;
-
-  // Client name
-  const client = getField([
-    /nama\s+penuh\s*[:\-]\s*(.+)/i,
-    /nama\s*[:\-]\s*(.+)/i,
-    /name\s*[:\-]\s*(.+)/i,
-    /client\s*[:\-]\s*(.+)/i,
-  ], lines);
-
-  // Event type
-  const event = getField([
-    /jenis\s+majlis\s*[:\-]\s*(.+)/i,
-    /event\s+type\s*[:\-]\s*(.+)/i,
-    /event\s*[:\-]\s*(.+)/i,
-    /majlis\s*[:\-]\s*(.+)/i,
-    /jenis\s*[:\-]\s*(.+)/i,
-  ], lines);
-
-  // Date
-  const dateRaw = getField([
-    /tarikh\s*[:\-]\s*(.+)/i,
-    /date\s*[:\-]\s*(.+)/i,
-    /tariikh\s*[:\-]\s*(.+)/i,
-  ], lines);
-  // Normalise date separators to DD/MM/YYYY
-  const date = dateRaw.replace(/[\.\-]/g, '/').replace(/\s/g,'');
-
-  // Package — look for 2, 3 or 4
-  const pkgRaw = getField([
-    /pakej\s+2\/3\/4\s*jam\s*[:\-]\s*(.+)/i,
-    /pakej\s*[:\-]\s*(.+)/i,
-    /package\s*[:\-]\s*(.+)/i,
-    /pack\s*[:\-]\s*(.+)/i,
-  ], lines);
-  let pkg = '2 JAM';
-  if (/4/.test(pkgRaw)) pkg = '4 JAM';
-  else if (/3/.test(pkgRaw)) pkg = '3 JAM';
-  else if (/2/.test(pkgRaw)) pkg = '2 JAM';
-
-  // Time — handle Malay (ptg=pm, mlm=pm, pagi=am, tghari=pm)
-  const timeRaw = getField([
-    /masa\s*[:\-]\s*(.+)/i,
-    /time\s*[:\-]\s*(.+)/i,
-    /waktu\s*[:\-]\s*(.+)/i,
-  ], lines);
-  const time = convertTime(timeRaw);
-
-  // Price
-  const price = getField([
-    /harga\s*[:\-]\s*(.+)/i,
-    /price\s*[:\-]\s*(.+)/i,
-    /bayaran\s*[:\-]\s*(.+)/i,
-    /jumlah\s*[:\-]\s*(.+)/i,
-  ], lines);
-
-  // Location
-  const location = getField([
-    /location\s*[:\-]\s*(.+)/i,
-    /lokasi\s*[:\-]\s*(.+)/i,
-    /venue\s*[:\-]\s*(.+)/i,
-    /tempat\s*[:\-]\s*(.+)/i,
-    /alamat\s*[:\-]\s*(.+)/i,
-  ], lines);
-
-  // Fill form
-  document.getElementById('f_client').value = client;
-  document.getElementById('f_event').value  = event;
-  document.getElementById('f_date').value   = date;
-  document.getElementById('f_pkg').value    = pkg;
-  document.getElementById('f_time').value   = time;
-  document.getElementById('f_price').value  = price;
-  document.getElementById('f_loc').value    = location;
-
-  document.getElementById('reviewCard').style.display = 'block';
-
-  // Check how many fields were filled
-  const filled = [client, event, date, time, location].filter(v=>v).length;
-  if (filled >= 3) {
-    setSt('parseStatus','<span class="pill ok">✓ Extracted — review & confirm</span>');
-  } else {
-    setSt('parseStatus','<span class="pill info">⚠ Partially extracted — please fill missing fields</span>');
-  }
-}
-
-// Convert Malay time expressions to 12hr format
-function convertTime(raw) {
-  if (!raw) return '';
-  // Replace Malay suffixes with am/pm
-  let t = raw
-    .replace(/\s*pagi/gi, 'am')
-    .replace(/\s*tengahari/gi, 'pm')
-    .replace(/\s*tghari/gi, 'pm')
-    .replace(/\s*ptg/gi, 'pm')
-    .replace(/\s*petang/gi, 'pm')
-    .replace(/\s*mlm/gi, 'pm')
-    .replace(/\s*malam/gi, 'pm');
-
-  // Extract start and end times
-  const timePattern = /(\d{1,2})(?:[:\.](\d{2}))?\s*(am|pm)?/gi;
-  const matches = [...t.matchAll(timePattern)];
-  if (!matches.length) return raw;
-
-  const fmt = (h, m, meridiem) => {
-    const hh = String(h).padStart(1,'');
-    const mm = m ? String(m).padStart(2,'0') : '00';
-    return `${hh}.${mm}${meridiem||'pm'}`;
-  };
-
-  if (matches.length >= 2) {
-    const [h1, m1, mer1] = [+matches[0][1], matches[0][2]||'00', matches[0][3]];
-    const [h2, m2, mer2] = [+matches[1][1], matches[1][2]||'00', matches[1][3]];
-    return `${fmt(h1,m1,mer1)}-${fmt(h2,m2,mer2)}`;
-  }
-  if (matches.length === 1) {
-    const [h, m, mer] = [+matches[0][1], matches[0][2]||'00', matches[0][3]];
-    return fmt(h, m, mer);
-  }
-  return raw;
-}
-
-function cancelEntry() {
-  document.getElementById('reviewCard').style.display = 'none';
-  document.getElementById('waText').value = '';
-  setSt('parseStatus','');
-}
-
-// ── SUBMIT ────────────────────────────────────────────────────────────────────
-async function submitEntry() {
-  if (!token) { toast('Not signed in.', 'err'); return; }
-  const row = [
-    document.getElementById('f_client').value.trim(),
-    document.getElementById('f_event').value.trim(),
-    document.getElementById('f_date').value.trim(),
-    document.getElementById('f_pkg').value,
-    document.getElementById('f_time').value.trim(),
-    document.getElementById('f_price').value.trim(),
-    document.getElementById('f_loc').value.trim(),
-  ];
-  if (!row[0]||!row[2]) { toast('Client name and Date required.', 'err'); return; }
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true; btn.textContent = 'Saving...';
-  setSt('submitStatus','<span class="spinner"></span>');
-  try {
-    const r = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}:append?valueInputOption=USER_ENTERED`,
-      { method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'application/json' },
-        body: JSON.stringify({ values:[row] }) }
-    );
-    const d = await r.json();
-    if (d.error) throw new Error(d.error.message);
-    toast(`${row[0]} saved to Google Sheet ✓`, 'ok');
-    allBookings.push({ client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6] });
-    cancelEntry(); setSt('submitStatus','');
-  } catch(e) {
-    toast('Save failed: '+e.message, 'err');
-    setSt('submitStatus',`<span class="pill err">${e.message}</span>`);
-  }
-  btn.disabled = false; btn.textContent = 'Save to Google Sheet ↑';
-}
-
-// ── HELPERS ───────────────────────────────────────────────────────────────────
-const parsePrice = s => { const m=(s||'').match(/RM\s*([\d,.]+)/i); return m?parseFloat(m[1].replace(/,/g,'')):0; };
-const parseDate  = s => { if(!s)return null; const p=s.split('/'); if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]); const d=new Date(s); return isNaN(d)?null:d; };
-const fmtDate    = s => { const d=parseDate(s); return d?d.toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'}):s; };
-const mKey       = s => { const d=parseDate(s); if(!d)return null; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
-const mLabel     = k => { if(!k)return''; const[y,m]=k.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('en-MY',{month:'short',year:'numeric'}); };
-const parseDepo  = s => { if(!s)return 0; if(/full payment/i.test(s))return parsePrice(s); const m=s.match(/depo\w*\s*(rm\s*)?([\d]+)/i); return m?parseFloat(m[2]):0; };
-
-// ── BOOKINGS ──────────────────────────────────────────────────────────────────
-function renderBookings() {
-  const months = [...new Set(allBookings.map(b=>mKey(b.date)).filter(Boolean))].sort();
-  document.getElementById('monthFilters').innerHTML =
-    `<button class="m-btn ${activeMonth==='all'?'active':''}" onclick="setMonth('all')">All</button>`+
-    months.map(m=>`<button class="m-btn ${activeMonth===m?'active':''}" onclick="setMonth('${m}')">${mLabel(m)}</button>`).join('');
-  const list = activeMonth==='all' ? allBookings : allBookings.filter(b=>mKey(b.date)===activeMonth);
-  const el = document.getElementById('bookingsTable');
-  if (!list.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📋</div>No bookings found.</div>'; return; }
-  const bClass = p => p&&p[0]==='4'?'b4':p&&p[0]==='3'?'b3':'b2';
-  el.innerHTML = `<div class="tbl-head"><div>Client</div><div class="c2">Date</div><div class="c3">Package</div><div>Price</div></div>`+
-    list.map(b=>`<div class="tbl-row">
-      <div><div class="e-name">${b.client}</div><div class="e-meta">${b.event}${b.location?' · '+b.location:''}</div></div>
-      <div class="e-cell c2">${fmtDate(b.date)}</div>
-      <div class="e-cell c3"><span class="badge ${bClass(b.pkg)}">${b.pkg||'—'}</span></div>
-      <div class="e-cell">${b.price}</div>
-    </div>`).join('');
-}
-function setMonth(m) { activeMonth=m; renderBookings(); }
-
-// ── CALENDAR ──────────────────────────────────────────────────────────────────
-function renderCalendar() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const up = allBookings.filter(b=>{ const d=parseDate(b.date); return d&&d>=today; })
-    .sort((a,b)=>parseDate(a.date)-parseDate(b.date)).slice(0,24);
-  const g = document.getElementById('calGrid');
-  if (!up.length) { g.innerHTML='<div class="empty"><div class="empty-icon">📅</div>No upcoming bookings.</div>'; return; }
-  g.innerHTML = up.map(b=>{
-    const d=parseDate(b.date);
-    const dl=d?d.toLocaleDateString('en-MY',{day:'numeric',month:'short'}):b.date;
-    const dy=d?d.toLocaleDateString('en-MY',{weekday:'long'}):'';
-    return `<div class="cal-card">
-      <div class="cal-date">${dl}</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">${dy}</div>
-      <div class="cal-client">${b.client}</div>
-      <div class="cal-detail">${b.event}<br>${b.pkg} · ${b.time}<br>${b.location}</div>
-      <button class="cal-btn" onclick="window.open('${calUrl(b)}','_blank')">+ Add to Google Calendar</button>
-    </div>`;
-  }).join('');
-}
-
-function calUrl(b) {
-  const d=parseDate(b.date); if(!d) return '#';
-  const pad=n=>String(n).padStart(2,'0');
-  const ymd=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
-  const pt=(t,def)=>{ const m=(t||'').match(/(\d+)\.(\d+)\s*(am|pm)/i); if(!m)return def;
-    let h=+m[1],mn=+m[2]; if(m[3].toLowerCase()==='pm'&&h!==12)h+=12; if(m[3].toLowerCase()==='am'&&h===12)h=0;
-    return `${ymd}T${pad(h)}${pad(mn)}00`; };
-  const pts=(b.time||'').split('-');
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE`+
-    `&text=${encodeURIComponent('Boxy Studio — '+b.client+' ('+b.event+')')}`+
-    `&dates=${pt(pts[0],ymd+'T090000')}/${pt(pts[1],ymd+'T110000')}`+
-    `&details=${encodeURIComponent('Package: '+b.pkg+'\nTime: '+b.time+'\nPrice: '+b.price)}`+
-    `&location=${encodeURIComponent(b.location)}`;
-}
-
-// ── DASHBOARD ─────────────────────────────────────────────────────────────────
-function renderDashboard() {
-  if (!allBookings.length) { toast('Sync first to view dashboard.','info'); return; }
-  const now=new Date(), tm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const prices=allBookings.map(b=>parsePrice(b.price));
-  const total=prices.reduce((a,v)=>a+v,0);
-  const mPrices=allBookings.filter(b=>mKey(b.date)===tm).map(b=>parsePrice(b.price));
-  const mTotal=mPrices.reduce((a,v)=>a+v,0);
-  const avg=prices.length?total/prices.length:0;
-  const pkgC={},evC={};
-  allBookings.forEach(b=>{ if(b.pkg)pkgC[b.pkg]=(pkgC[b.pkg]||0)+1; if(b.event)evC[b.event]=(evC[b.event]||0)+1; });
-  const topPkg=Object.entries(pkgC).sort((a,b)=>b[1]-a[1])[0];
-  const topEv=Object.entries(evC).sort((a,b)=>b[1]-a[1])[0];
-  document.getElementById('m-total').textContent = `RM${Math.round(total).toLocaleString()}`;
-  document.getElementById('m-month').textContent = `RM${Math.round(mTotal).toLocaleString()}`;
-  document.getElementById('m-mlbl').textContent  = mLabel(tm);
-  document.getElementById('m-count').textContent = allBookings.length;
-  document.getElementById('m-avg').textContent   = `RM${Math.round(avg).toLocaleString()}`;
-  document.getElementById('m-pkg').textContent   = topPkg?topPkg[0]:'—';
-  document.getElementById('m-pkgs').textContent  = topPkg?`${topPkg[1]} bookings`:'';
-  document.getElementById('m-ev').textContent    = topEv?topEv[0]:'—';
-  document.getElementById('m-evs').textContent   = topEv?`${topEv[1]} bookings`:'';
-  // Bar chart
-  const byM={};
-  allBookings.forEach(b=>{ const k=mKey(b.date); if(k)byM[k]=(byM[k]||0)+parsePrice(b.price); });
-  const keys=Object.keys(byM).sort().slice(-8);
-  const maxR=Math.max(...keys.map(k=>byM[k]),1);
-  document.getElementById('barChart').innerHTML=keys.map(k=>{
-    const pct=Math.round((byM[k]/maxR)*100);
-    const lbl=new Date(k+'-01').toLocaleDateString('en-MY',{month:'short'});
-    return `<div class="b-col"><div class="bar" style="height:${pct}%" title="${lbl}: RM${Math.round(byM[k]).toLocaleString()}"></div><div class="b-lbl">${lbl}</div></div>`;
-  }).join('');
-  // Deposits
-  const td=allBookings.reduce((a,b)=>a+parseDepo(b.price),0);
-  const fp=allBookings.filter(b=>/full payment/i.test(b.price)).length;
-  const dp=allBookings.filter(b=>/depo/i.test(b.price)).length;
-  document.getElementById('depoStats').innerHTML=[
-    [`RM${Math.round(td).toLocaleString()}`,'deposits collected','var(--accent)'],
-    [fp,'fully paid','var(--success)'],
-    [dp,'deposit only','var(--text)'],
-    [`RM${Math.round(total-td).toLocaleString()}`,'balance outstanding','var(--danger)'],
-  ].map(([v,l,c])=>`<div><div style="font-size:24px;font-family:var(--font-display);color:${c};">${v}</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">${l}</div></div>`).join('');
-}
+// Close menu on link click
+document.querySelectorAll('#navLinks a').forEach(a => {
+  a.addEventListener('click', () => document.getElementById('navLinks').classList.remove('open'));
+});
 </script>
 </body>
 </html>
