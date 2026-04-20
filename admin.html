@@ -310,20 +310,17 @@ Cas transport RM39 (39km)"></textarea>
   <!-- INVOICE -->
   <div class="page" id="page-invoice">
     <p class="page-title">Generate <em>invoice</em></p>
-    <p class="page-sub">Search a booking · update paid amount · preview & download</p>
-
-    <!-- SEARCH -->
+    <p class="page-sub">Search booking · Generate or Update before invoicing</p>
     <div class="card">
-      <div class="card-lbl">Search booking</div>
-      <div class="search-row">
-        <input class="search-input" id="invSearch" placeholder="🔍  Type client name, date or event..." oninput="invSearchFilter()">
+      <div class="search-row" style="margin-bottom:0;">
+        <input class="search-input" id="invSearch" placeholder="🔍  Search client, date, event..." oninput="invSearchFilter()">
       </div>
-      <div id="invSearchResults"></div>
+      <div id="invBookingList" style="margin-top:4px;"><div class="empty" style="padding:16px;">Sync first to load bookings.</div></div>
     </div>
 
-    <!-- PRE-FILL PANEL (shown after picking a booking) -->
+    <!-- INLINE UPDATE PANEL — slides in below the chosen row -->
     <div class="card" id="invEditCard" style="display:none;">
-      <div class="card-lbl" id="invEditLbl">Confirm &amp; update</div>
+      <div class="card-lbl" id="invEditLbl">Update invoice details</div>
       <div class="fields">
         <div class="field"><label>Client name</label><input id="i_client" type="text"></div>
         <div class="field"><label>Date</label><input id="i_date" type="text" placeholder="DD/MM/YYYY"></div>
@@ -332,7 +329,7 @@ Cas transport RM39 (39km)"></textarea>
         <div class="field"><label>Distance km</label><input id="i_km" type="number" placeholder="e.g. 43"></div>
         <div class="field" style="border:1px solid var(--accent);border-radius:8px;padding:8px 11px;background:rgba(200,240,96,.04);">
           <label style="color:var(--accent);">Amount paid / deposit (RM)</label>
-          <input id="i_depo" type="number" placeholder="e.g. 100 or full amount" style="background:transparent;border:none;padding:4px 0;">
+          <input id="i_depo" type="number" placeholder="e.g. 100 or full amount" style="background:transparent;border:none;padding:4px 0;color:var(--text);font-family:var(--fm);font-size:12px;outline:none;width:100%;">
         </div>
       </div>
       <div style="margin-top:12px;">
@@ -349,7 +346,7 @@ Cas transport RM39 (39km)"></textarea>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-p" onclick="buildInvoiceFromPanel()">Preview Invoice →</button>
-        <button class="btn btn-g" onclick="clearInvPanel()">Clear</button>
+        <button class="btn btn-g" onclick="clearInvPanel()">✕ Cancel</button>
       </div>
     </div>
   </div>
@@ -754,31 +751,40 @@ function getInvNum(){return parseInt(localStorage.getItem('boxy_inv')||'52');}
 function bumpInvNum(){localStorage.setItem('boxy_inv',getInvNum()+1);}
 
 function renderInvBookingList(){
-  // Just trigger a blank search to show recent bookings
   invSearchFilter();
 }
 
 function invSearchFilter(){
   const q=(document.getElementById('invSearch')||{value:''}).value.toLowerCase().trim();
-  const el=document.getElementById('invSearchResults');
-  if(!allBookings.length){el.innerHTML='<div class="empty" style="padding:12px 0;">Sync first to load bookings.</div>';return;}
+  const el=document.getElementById('invBookingList');
+  if(!allBookings.length){el.innerHTML='<div class="empty" style="padding:16px;">Sync first to load bookings.</div>';return;}
   let list=q
     ? allBookings.filter(b=>(b.client+b.event+b.date+b.location).toLowerCase().includes(q))
-    : [...allBookings].sort((a,b)=>(pDate(b.date)||0)-(pDate(a.date)||0)).slice(0,10);
+    : [...allBookings].sort((a,b)=>(pDate(b.date)||0)-(pDate(a.date)||0));
   if(!list.length){el.innerHTML='<div class="empty" style="padding:12px 0;">No bookings match.</div>';return;}
   el.innerHTML=list.map(b=>{
     const ri=allBookings.indexOf(b);
     return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px;">
-      <div style="min-width:0;">
-        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.client}</div>
-        <div style="font-size:11px;color:var(--muted);">${fDate(b.date)} · ${b.pkg} · ${b.price}${b.km?' · '+b.km+'km':''}</div>
+      <div style="min-width:0;flex:1;">
+        <div style="font-size:13px;font-weight:500;">${b.client}</div>
+        <div style="font-size:11px;color:var(--muted);">${fDate(b.date)} · ${b.pkg||'—'} · ${b.price||'—'}${b.km?' · '+b.km+'km':''}</div>
       </div>
-      <button class="btn btn-g" onclick="loadInvPanel(${ri})" style="font-size:11px;padding:6px 14px;white-space:nowrap;">Use →</button>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn btn-g" onclick="openInvUpdate(${ri})" style="font-size:11px;padding:6px 12px;">✏ Update</button>
+        <button class="btn btn-p" onclick="quickGenInv(${ri})" style="font-size:11px;padding:6px 12px;">Generate</button>
+      </div>
     </div>`;
   }).join('');
 }
 
-function loadInvPanel(idx){
+// Generate straight from record (no edits)
+function quickGenInv(idx){
+  const b=allBookings[idx];
+  showInvoice({client:b.client,date:b.date,pkg:b.pkg,pkgPrice:pPrice(b.price),km:parseFloat(b.km)||0,depo:pDepo(b.price)},[]);
+}
+
+// Update button — load panel with booking data, scroll to it
+function openInvUpdate(idx){
   const b=allBookings[idx];
   document.getElementById('i_client').value=b.client||'';
   document.getElementById('i_date').value=b.date||'';
@@ -786,19 +792,18 @@ function loadInvPanel(idx){
   document.getElementById('i_price').value=pPrice(b.price)||'';
   document.getElementById('i_km').value=b.km||'';
   document.getElementById('i_depo').value=pDepo(b.price)||'';
-  // Reset add-ons
   ['ia_guest','ia_size','ia_xhour','ia_key'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   const kq=document.getElementById('ia_key_qty');if(kq){kq.value='';kq.style.display='none';}
-  document.getElementById('invEditLbl').textContent='Confirm & update — '+b.client;
-  document.getElementById('invEditCard').style.display='block';
-  document.getElementById('invEditCard').scrollIntoView({behavior:'smooth',block:'start'});
-  // Focus on the deposit field so user can update it
+  document.getElementById('invEditLbl').textContent='Update invoice — '+b.client;
+  const card=document.getElementById('invEditCard');
+  card.style.display='block';
+  card.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(()=>document.getElementById('i_depo').focus(),400);
 }
 
 function clearInvPanel(){
   document.getElementById('invEditCard').style.display='none';
-  ['i_client','i_date','i_price','i_km','i_depo'].forEach(id=>document.getElementById(id).value='');
+  ['i_client','i_date','i_price','i_km','i_depo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('i_pkg').value='2 JAM';
   ['ia_guest','ia_size','ia_xhour','ia_key'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   const kq=document.getElementById('ia_key_qty');if(kq){kq.value='';kq.style.display='none';}
@@ -818,9 +823,9 @@ function buildInvoiceFromPanel(){
 }
 
 function openInvForBooking(idx){
-  // Called from Bookings tab — jump to invoice tab and pre-load
+  // Called from Bookings tab — jump to Invoice tab and open Update panel
   showPage('invoice',document.querySelector('.tab[onclick*="invoice"]'));
-  setTimeout(()=>loadInvPanel(idx),100);
+  setTimeout(()=>openInvUpdate(idx),150);
 }
 
 function openInvFromAdd(){
@@ -829,9 +834,7 @@ function openInvFromAdd(){
   showInvoice(b,addons);
 }
 
-function buildInvoiceManual(){
-  buildInvoiceFromPanel();
-}
+function buildInvoiceManual(){buildInvoiceFromPanel();}
 function getAddons(pre){
   const addons=[];
   if(document.getElementById(pre+'guest')&&document.getElementById(pre+'guest').checked)addons.push({name:'Guestbook',rate:'RM40',unit:'1',amt:40});
