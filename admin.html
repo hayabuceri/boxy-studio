@@ -296,7 +296,15 @@ Cas transport RM39 (39km)"></textarea>
   <!-- CALENDAR -->
   <div class="page" id="page-calendar">
     <p class="page-title">Upcoming <em>schedule</em></p>
-    <p class="page-sub">Tap cards to select · export all as .ics</p>
+    <p class="page-sub">Search · filter by month · select &amp; export .ics</p>
+    <div class="search-row">
+      <input class="search-input" id="calSearch" placeholder="🔍  Search client, event, location..." oninput="renderCalendar()">
+    </div>
+    <div class="filter-row" id="calMonthFilters"></div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="btn btn-g" onclick="calSelectAll()" style="font-size:11px;padding:6px 12px;">☑ Select all</button>
+      <button class="btn btn-g" onclick="clearSel()" style="font-size:11px;padding:6px 12px;">☐ Clear all</button>
+    </div>
     <div class="cal-grid" id="calGrid"><div class="empty">Click ↻ Sync to load.</div></div>
     <div class="bulk-bar" id="bulkBar">
       <span id="bulkCount" style="font-size:12px;color:var(--muted);">0 selected</span>
@@ -460,10 +468,12 @@ let editIdx=-1,deleteIdx=-1,calSel=new Set(),curInv=null;
 // ── PERSISTENT SESSION ──────────────────────────────────────────────────────
 const SESSION_KEY='boxy_session';
 function saveSession(tok,user){try{localStorage.setItem(SESSION_KEY,JSON.stringify({token:tok,user,saved:Date.now()}));}catch(e){}}
-function loadSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(!s)return null;const age=(Date.now()-s.saved)/1000;if(age>3300)return null;return s;}catch(e){return null;}}
+function loadSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(!s)return null;const age=(Date.now()-s.saved)/1000/3600;if(age>168)return null;// 7 days
+return s;}catch(e){return null;}}
 function clearSession(){try{localStorage.removeItem(SESSION_KEY);}catch(e){}}
 
-function initG(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:r=>{if(r.error){toast('Sign-in error','err');return;}token=r.access_token;fetchUser();}});}
+function initG(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:r=>{if(r.error){toast('Sign-in error','err');return;}token=r.access_token;// Update saved token
+const s=loadSession();if(s){saveSession(token,s.user);}fetchUser();}});}
 function signIn(){if(!window.google){toast('Loading...','err');return;}if(!tokenClient)initG();tokenClient.requestAccessToken({prompt:'consent'});}
 function signOut(){if(token)google.accounts.oauth2.revoke(token);token=null;allBookings=[];clearSession();document.getElementById('loginScreen').style.display='flex';document.getElementById('appScreen').style.display='none';toast('Signed out','info');}
 async function fetchUser(){
@@ -487,9 +497,11 @@ function tryRestoreSession(){
   }
   return false;
 }
+// Restore session immediately — don't wait for GSI
+document.addEventListener('DOMContentLoaded',()=>{tryRestoreSession();});
 window.addEventListener('load',()=>{
+  const doInit=()=>{if(!tokenClient)initG();};
   const s=document.querySelector('script[src*="gsi"]');
-  const doInit=()=>{initG();if(!tryRestoreSession()){}};
   if(s)s.addEventListener('load',()=>setTimeout(doInit,200));else setTimeout(doInit,500);
 });
 
@@ -511,11 +523,22 @@ function setSt(id,html){document.getElementById(id).innerHTML=html;}
 
 // SHEET LOAD
 async function loadSheet(){
-  if(!token){toast('Sign in first','err');return;}
+  if(!token){
+    // Try silent token refresh if we have a saved session
+    const s=loadSession();
+    if(s&&s.user&&tokenClient){tokenClient.requestAccessToken({prompt:''});return;}
+    toast('Sign in first','err');return;
+  }
   const btn=document.getElementById('syncBtn');btn.textContent='…';
   try{
     const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}`,{headers:{Authorization:'Bearer '+token}});
-    const d=await r.json();if(d.error)throw new Error(d.error.message);
+    const d=await r.json();
+    if(d.error&&d.error.code===401){
+      // Token expired — request a new one silently then retry
+      if(tokenClient){tokenClient.requestAccessToken({prompt:''});}
+      btn.textContent='↻';return;
+    }
+    if(d.error)throw new Error(d.error.message);
     allBookings=(d.values||[]).slice(1).filter(r=>r[0]&&r[0].trim()).map((r,i)=>({
       idx:i,client:r[0]||'',event:r[1]||'',date:r[2]||'',pkg:r[3]||'',time:r[4]||'',price:r[5]||'',location:r[6]||'',km:r[7]||'',strips:r[8]||''
     }));
@@ -695,12 +718,24 @@ async function confirmDelete(){
 }
 
 // CALENDAR
+let activeCalMonth='all';
 function renderCalendar(){
   const today=new Date();today.setHours(0,0,0,0);
-  const up=allBookings.filter(b=>{const d=pDate(b.date);return d&&d>=today;}).sort((a,b)=>pDate(a.date)-pDate(b.date)).slice(0,30);
+  const q=(document.getElementById('calSearch')||{value:''}).value.toLowerCase().trim();
+  // All upcoming (no 30-cap anymore)
+  let up=allBookings.filter(b=>{const d=pDate(b.date);return d&&d>=today;}).sort((a,b)=>pDate(a.date)-pDate(b.date));
+  // Month filter buttons
+  const months=[...new Set(up.map(b=>mKey(b.date)).filter(Boolean))].sort();
+  document.getElementById('calMonthFilters').innerHTML=
+    `<button class="m-btn ${activeCalMonth==='all'?'active':''}" onclick="setCalMonth('all')">All</button>`+
+    months.map(m=>`<button class="m-btn ${activeCalMonth===m?'active':''}" onclick="setCalMonth('${m}')">${mLbl(m)}</button>`).join('');
+  // Apply month filter
+  if(activeCalMonth!=='all')up=up.filter(b=>mKey(b.date)===activeCalMonth);
+  // Apply search
+  if(q)up=up.filter(b=>(b.client+b.event+b.location).toLowerCase().includes(q));
   window._calUp=up;
   const g=document.getElementById('calGrid');
-  if(!up.length){g.innerHTML='<div class="empty">No upcoming bookings.</div>';return;}
+  if(!up.length){g.innerHTML='<div class="empty">No upcoming bookings.</div>';updateBulkBar();return;}
   g.innerHTML=up.map((b,i)=>{
     const d=pDate(b.date);
     const dl=d?d.toLocaleDateString('en-MY',{day:'numeric',month:'short'}):b.date;
@@ -716,6 +751,12 @@ function renderCalendar(){
     </div>`;
   }).join('');
   updateBulkBar();
+}
+function setCalMonth(m){activeCalMonth=m;calSel.clear();renderCalendar();}
+function calSelectAll(){
+  const up=window._calUp||[];
+  up.forEach((_,i)=>calSel.add(i));
+  renderCalendar();
 }
 function toggleSel(i,e){if(e.target.classList.contains('cal-add-btn'))return;if(calSel.has(i))calSel.delete(i);else calSel.add(i);document.getElementById('cc'+i).classList.toggle('selected',calSel.has(i));document.getElementById('ct'+i).textContent=calSel.has(i)?'✓':'';updateBulkBar();}
 function updateBulkBar(){const bar=document.getElementById('bulkBar');bar.classList.toggle('show',calSel.size>0);document.getElementById('bulkCount').textContent=calSel.size+' selected';}
