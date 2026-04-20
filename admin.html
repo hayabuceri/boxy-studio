@@ -310,20 +310,30 @@ Cas transport RM39 (39km)"></textarea>
   <!-- INVOICE -->
   <div class="page" id="page-invoice">
     <p class="page-title">Generate <em>invoice</em></p>
-    <p class="page-sub">Select a booking or fill manually · auto-calculates transport & balance</p>
+    <p class="page-sub">Search a booking · update paid amount · preview & download</p>
+
+    <!-- SEARCH -->
     <div class="card">
-      <div class="card-lbl">Select from existing booking</div>
-      <div id="invBookingList"><div class="empty" style="padding:16px;">Sync first to load bookings.</div></div>
+      <div class="card-lbl">Search booking</div>
+      <div class="search-row">
+        <input class="search-input" id="invSearch" placeholder="🔍  Type client name, date or event..." oninput="invSearchFilter()">
+      </div>
+      <div id="invSearchResults"></div>
     </div>
-    <div class="card">
-      <div class="card-lbl">Or fill manually</div>
+
+    <!-- PRE-FILL PANEL (shown after picking a booking) -->
+    <div class="card" id="invEditCard" style="display:none;">
+      <div class="card-lbl" id="invEditLbl">Confirm &amp; update</div>
       <div class="fields">
         <div class="field"><label>Client name</label><input id="i_client" type="text"></div>
         <div class="field"><label>Date</label><input id="i_date" type="text" placeholder="DD/MM/YYYY"></div>
         <div class="field"><label>Package</label><select id="i_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
         <div class="field"><label>Package price (RM)</label><input id="i_price" type="number" placeholder="e.g. 600"></div>
         <div class="field"><label>Distance km</label><input id="i_km" type="number" placeholder="e.g. 43"></div>
-        <div class="field"><label>Deposit paid (RM)</label><input id="i_depo" type="number" placeholder="e.g. 100"></div>
+        <div class="field" style="border:1px solid var(--accent);border-radius:8px;padding:8px 11px;background:rgba(200,240,96,.04);">
+          <label style="color:var(--accent);">Amount paid / deposit (RM)</label>
+          <input id="i_depo" type="number" placeholder="e.g. 100 or full amount" style="background:transparent;border:none;padding:4px 0;">
+        </div>
       </div>
       <div style="margin-top:12px;">
         <div class="card-lbl">Add-ons</div>
@@ -337,8 +347,9 @@ Cas transport RM39 (39km)"></textarea>
           </div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
-        <button class="btn btn-p" onclick="buildInvoiceManual()">Preview Invoice</button>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-p" onclick="buildInvoiceFromPanel()">Preview Invoice →</button>
+        <button class="btn btn-g" onclick="clearInvPanel()">Clear</button>
       </div>
     </div>
   </div>
@@ -743,31 +754,83 @@ function getInvNum(){return parseInt(localStorage.getItem('boxy_inv')||'52');}
 function bumpInvNum(){localStorage.setItem('boxy_inv',getInvNum()+1);}
 
 function renderInvBookingList(){
-  const el=document.getElementById('invBookingList');
-  if(!allBookings.length){el.innerHTML='<div class="empty" style="padding:16px;">Sync first.</div>';return;}
-  const recent=[...allBookings].sort((a,b)=>(pDate(b.date)||0)-(pDate(a.date)||0)).slice(0,15);
-  el.innerHTML=recent.map((b,i)=>{
+  // Just trigger a blank search to show recent bookings
+  invSearchFilter();
+}
+
+function invSearchFilter(){
+  const q=(document.getElementById('invSearch')||{value:''}).value.toLowerCase().trim();
+  const el=document.getElementById('invSearchResults');
+  if(!allBookings.length){el.innerHTML='<div class="empty" style="padding:12px 0;">Sync first to load bookings.</div>';return;}
+  let list=q
+    ? allBookings.filter(b=>(b.client+b.event+b.date+b.location).toLowerCase().includes(q))
+    : [...allBookings].sort((a,b)=>(pDate(b.date)||0)-(pDate(a.date)||0)).slice(0,10);
+  if(!list.length){el.innerHTML='<div class="empty" style="padding:12px 0;">No bookings match.</div>';return;}
+  el.innerHTML=list.map(b=>{
     const ri=allBookings.indexOf(b);
-    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
-      <div><div style="font-size:13px;font-weight:500;">${b.client}</div><div style="font-size:11px;color:var(--muted);">${fDate(b.date)} · ${b.pkg} · ${b.price}</div></div>
-      <button class="btn btn-g" onclick="openInvForBooking(${ri})" style="font-size:11px;padding:6px 12px;">Generate</button>
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px;">
+      <div style="min-width:0;">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.client}</div>
+        <div style="font-size:11px;color:var(--muted);">${fDate(b.date)} · ${b.pkg} · ${b.price}${b.km?' · '+b.km+'km':''}</div>
+      </div>
+      <button class="btn btn-g" onclick="loadInvPanel(${ri})" style="font-size:11px;padding:6px 14px;white-space:nowrap;">Use →</button>
     </div>`;
   }).join('');
 }
 
-function openInvForBooking(idx){
+function loadInvPanel(idx){
   const b=allBookings[idx];
-  showInvoice({client:b.client,date:b.date,pkg:b.pkg,pkgPrice:pPrice(b.price),km:parseFloat(b.km)||0,depo:pDepo(b.price)},[]);
+  document.getElementById('i_client').value=b.client||'';
+  document.getElementById('i_date').value=b.date||'';
+  document.getElementById('i_pkg').value=b.pkg||'2 JAM';
+  document.getElementById('i_price').value=pPrice(b.price)||'';
+  document.getElementById('i_km').value=b.km||'';
+  document.getElementById('i_depo').value=pDepo(b.price)||'';
+  // Reset add-ons
+  ['ia_guest','ia_size','ia_xhour','ia_key'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  const kq=document.getElementById('ia_key_qty');if(kq){kq.value='';kq.style.display='none';}
+  document.getElementById('invEditLbl').textContent='Confirm & update — '+b.client;
+  document.getElementById('invEditCard').style.display='block';
+  document.getElementById('invEditCard').scrollIntoView({behavior:'smooth',block:'start'});
+  // Focus on the deposit field so user can update it
+  setTimeout(()=>document.getElementById('i_depo').focus(),400);
 }
+
+function clearInvPanel(){
+  document.getElementById('invEditCard').style.display='none';
+  ['i_client','i_date','i_price','i_km','i_depo'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('i_pkg').value='2 JAM';
+  ['ia_guest','ia_size','ia_xhour','ia_key'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  const kq=document.getElementById('ia_key_qty');if(kq){kq.value='';kq.style.display='none';}
+}
+
+function buildInvoiceFromPanel(){
+  const b={
+    client:document.getElementById('i_client').value,
+    date:document.getElementById('i_date').value,
+    pkg:document.getElementById('i_pkg').value,
+    pkgPrice:parseFloat(document.getElementById('i_price').value)||0,
+    km:parseFloat(document.getElementById('i_km').value)||0,
+    depo:parseFloat(document.getElementById('i_depo').value)||0
+  };
+  const addons=getAddons('ia_');
+  showInvoice(b,addons);
+}
+
+function openInvForBooking(idx){
+  // Called from Bookings tab — jump to invoice tab and pre-load
+  showPage('invoice',document.querySelector('.tab[onclick*="invoice"]'));
+  setTimeout(()=>loadInvPanel(idx),100);
+}
+
 function openInvFromAdd(){
   const b={client:document.getElementById('f_client').value,date:document.getElementById('f_date').value,pkg:document.getElementById('f_pkg').value,pkgPrice:pPrice(document.getElementById('f_price').value),km:parseFloat(document.getElementById('f_km').value)||0,depo:pDepo(document.getElementById('f_price').value)};
   const addons=getAddons('ao_');
   showInvoice(b,addons);
 }
+
 function buildInvoiceManual(){
-  const b={client:document.getElementById('i_client').value,date:document.getElementById('i_date').value,pkg:document.getElementById('i_pkg').value,pkgPrice:parseFloat(document.getElementById('i_price').value)||0,km:parseFloat(document.getElementById('i_km').value)||0,depo:parseFloat(document.getElementById('i_depo').value)||0};
-  const addons=getAddons('ia_');
-  showInvoice(b,addons);
+  buildInvoiceFromPanel();
 }
 function getAddons(pre){
   const addons=[];
