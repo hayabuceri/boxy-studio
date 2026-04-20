@@ -449,17 +449,41 @@ let token=null,allBookings=[],activeMonth='all',tokenClient=null;
 let editIdx=-1,deleteIdx=-1,calSel=new Set(),curInv=null;
 
 // AUTH
+// ── PERSISTENT SESSION ──────────────────────────────────────────────────────
+const SESSION_KEY='boxy_session';
+function saveSession(tok,user){try{localStorage.setItem(SESSION_KEY,JSON.stringify({token:tok,user,saved:Date.now()}));}catch(e){}}
+function loadSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(!s)return null;const age=(Date.now()-s.saved)/1000;if(age>3300)return null;return s;}catch(e){return null;}}
+function clearSession(){try{localStorage.removeItem(SESSION_KEY);}catch(e){}}
+
 function initG(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:r=>{if(r.error){toast('Sign-in error','err');return;}token=r.access_token;fetchUser();}});}
 function signIn(){if(!window.google){toast('Loading...','err');return;}if(!tokenClient)initG();tokenClient.requestAccessToken({prompt:'consent'});}
-function signOut(){if(token)google.accounts.oauth2.revoke(token);token=null;allBookings=[];document.getElementById('loginScreen').style.display='flex';document.getElementById('appScreen').style.display='none';toast('Signed out','info');}
+function signOut(){if(token)google.accounts.oauth2.revoke(token);token=null;allBookings=[];clearSession();document.getElementById('loginScreen').style.display='flex';document.getElementById('appScreen').style.display='none';toast('Signed out','info');}
 async function fetchUser(){
   try{const r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+token}});const u=await r.json();
-  document.getElementById('uName').textContent=u.given_name||u.name||'';
-  const av=document.getElementById('uAv');if(u.picture){av.src=u.picture;av.style.display='block';}
+  applyUser(u);saveSession(token,u);
   document.getElementById('loginScreen').style.display='none';document.getElementById('appScreen').style.display='block';loadSheet();}
   catch(e){toast('User load failed','err');}
 }
-window.addEventListener('load',()=>{const s=document.querySelector('script[src*="gsi"]');if(s)s.addEventListener('load',()=>setTimeout(initG,200));else setTimeout(initG,500);});
+function applyUser(u){
+  document.getElementById('uName').textContent=u.given_name||u.name||'';
+  const av=document.getElementById('uAv');if(u.picture){av.src=u.picture;av.style.display='block';}
+}
+function tryRestoreSession(){
+  const s=loadSession();
+  if(s&&s.token&&s.user){
+    token=s.token;applyUser(s.user);
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('appScreen').style.display='block';
+    loadSheet();
+    return true;
+  }
+  return false;
+}
+window.addEventListener('load',()=>{
+  const s=document.querySelector('script[src*="gsi"]');
+  const doInit=()=>{initG();if(!tryRestoreSession()){}};
+  if(s)s.addEventListener('load',()=>setTimeout(doInit,200));else setTimeout(doInit,500);
+});
 
 // NAV
 function showPage(n,btn){
@@ -575,20 +599,41 @@ function renderBookings(){
   if(q)list=list.filter(b=>(b.client+b.event+b.location).toLowerCase().includes(q));
   const el=document.getElementById('bookingsTable');
   if(!list.length){el.innerHTML='<div class="empty">No bookings found.</div>';return;}
+  // Summary bar for filtered list
+  const totalRev=list.reduce((a,b)=>a+pPrice(b.price),0);
+  const totalKm=list.reduce((a,b)=>a+(parseFloat(b.km)||0),0);
+  const totalFuel=totalKm*0.33;
+  const totalWorker=list.length*80;
+  const totalStrips=list.reduce((a,b)=>a+(parseFloat(b.strips)||0)*0.30,0);
+  const netProfit=totalRev-totalFuel-totalWorker-totalStrips;
+  const summaryBar=`<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:16px;font-size:11px;">
+    <div><span style="color:var(--muted);">Total Revenue</span><br><span style="color:var(--accent);font-size:15px;font-family:var(--fd);">RM${Math.round(totalRev).toLocaleString()}</span></div>
+    <div><span style="color:var(--muted);">Total KM</span><br><span style="font-size:15px;font-family:var(--fd);">${Math.round(totalKm).toLocaleString()} km</span></div>
+    <div><span style="color:var(--muted);">Transport Cost</span><br><span style="color:var(--danger);font-size:15px;font-family:var(--fd);">RM${Math.round(totalFuel).toLocaleString()}</span></div>
+    <div><span style="color:var(--muted);">Net Profit</span><br><span style="color:var(--success);font-size:15px;font-family:var(--fd);">RM${Math.round(netProfit).toLocaleString()}</span></div>
+    <div><span style="color:var(--muted);">Bookings</span><br><span style="font-size:15px;font-family:var(--fd);">${list.length}</span></div>
+  </div>`;
   const bc=p=>p&&p[0]==='4'?'b4':p&&p[0]==='3'?'b3':'b2';
-  el.innerHTML=list.map(b=>{
+  el.innerHTML=summaryBar+list.map(b=>{
     const ri=allBookings.indexOf(b);
+    const km=parseFloat(b.km)||0;
+    const trans=parseFloat((km*1.0).toFixed(0));
+    const pkgPrice=pPrice(b.price);
+    const profit=pkgPrice-(km*0.33)-80-((parseFloat(b.strips)||0)*0.30);
+    const kmTag=km?`<span style="font-size:10px;color:var(--muted);"> · ${km}km</span>`:'';
+    const profitColor=profit>=0?'var(--success)':'var(--danger)';
     return`<div class="bk-card">
       <div class="bk-top">
         <div>
           <div class="bk-name">${b.client}</div>
           <div class="bk-meta">${b.event}${b.location?' · '+b.location:''}</div>
-          <div class="bk-meta">${b.time||''}</div>
+          <div class="bk-meta">${b.time||''}${kmTag}</div>
         </div>
         <div class="bk-right">
           <div class="bk-date">${fDate(b.date)}</div>
           <span class="badge ${bc(b.pkg)}">${b.pkg||'—'}</span>
           <div class="bk-price">${b.price}</div>
+          ${km?`<div style="font-size:10px;color:var(${profitColor});">net RM${Math.round(profit).toLocaleString()}</div>`:''}
         </div>
       </div>
       <div class="bk-actions">
@@ -786,9 +831,9 @@ function downloadPDF(){
   if(!curInv)return;
   bumpInvNum();
   const el=document.getElementById('invPrint');
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-    body{margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;}
+  const invNum=document.getElementById('invNumDisplay').textContent;
+  const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const css=`body{margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;}
     *{box-sizing:border-box;}
     .inv-wrap{max-width:700px;margin:0 auto;}
     .inv-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;}
@@ -808,9 +853,30 @@ function downloadPDF(){
     .inv-bal td{font-size:14px;font-weight:700;border-top:2px solid #111;padding-top:8px;}
     .inv-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:24px;}
     .inv-copy{text-align:center;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:10px;margin-top:16px;}
-    @media print{@page{margin:10mm;}body{padding:0;}}
-  </style></head><body>${el.outerHTML}<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script></body></html>`);
-  w.document.close();
+    @media print{@page{margin:10mm;}body{padding:0;}}`;
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invoice #${invNum}</title><style>${css}</style></head><body>${el.outerHTML}<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});<\/script></body></html>`;
+  if(isMobile){
+    // On mobile: create a Blob URL and open it — browser's built-in print/save works reliably
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.target='_blank';
+    a.rel='noopener';
+    // Try opening as new tab (iOS Safari triggers print dialog)
+    const opened=window.open(url,'_blank');
+    if(!opened){
+      // Popup blocked — download as .html file as fallback
+      a.download='Invoice-'+invNum+'.html';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      toast('Saved as HTML — open to print/save PDF','info');
+    }
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+  } else {
+    const w=window.open('','_blank');
+    w.document.write(html);
+    w.document.close();
+  }
 }
 
 // DASHBOARD
