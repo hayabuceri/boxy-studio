@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vault — Password Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  /* ── Reset & tokens ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0a0a;
+    --surface:   #111111;
+    --surface2:  #1a1a1a;
+    --border:    #242424;
+    --border2:   #303030;
+    --accent:    #c8f04d;
+    --accent2:   #a8d93d;
+    --text:      #f0f0f0;
+    --muted:     #666;
+    --muted2:    #888;
+    --danger:    #e05252;
+    --radius:    12px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Lock Screen ── */
+  #lock-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    background: var(--bg);
+  }
+
+  .lock-logo {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 48px;
+  }
+
+  .lock-title {
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .lock-sub {
+    font-size: 14px;
+    color: var(--muted2);
+    margin-bottom: 40px;
+    text-align: center;
+  }
+
+  .pin-dots {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 40px;
+  }
+
+  .pin-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border2);
+    transition: all 0.15s;
+  }
+
+  .pin-dot.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: scale(1.1);
+  }
+
+  .pin-dot.error {
+    background: var(--danger);
+    border-color: var(--danger);
+  }
+
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 72px);
+    gap: 12px;
+  }
+
+  .key {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border2);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+    user-select: none;
+  }
+
+  .key:hover { background: var(--surface2); border-color: var(--border2); }
+  .key:active { transform: scale(0.93); background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .key.del { font-size: 18px; }
+  .key.empty { visibility: hidden; }
+
+  .lock-error {
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--danger);
+    height: 18px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── App Shell ── */
+  #app {
+    display: none;
+    max-width: 430px;
+    margin: 0 auto;
+    padding-bottom: 100px;
+  }
+
+  /* ── Header ── */
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 12px;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .header-brand {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .header-lock-btn {
+    background: none;
+    border: 1.5px solid var(--border2);
+    color: var(--muted2);
+    border-radius: var(--radius-sm);
+    padding: 5px 12px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .header-lock-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .search-wrap {
+    position: relative;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px 10px 38px;
+    font-size: 14px;
+    font-family: 'Syne', sans-serif;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--accent); }
+
+  /* ── Categories ── */
+  .cats-wrap {
+    padding: 14px 20px 0;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .cats-wrap::-webkit-scrollbar { display: none; }
+
+  .cat-chip {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    border-radius: 999px;
+    border: 1.5px solid var(--border2);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer;
+    color: var(--muted2);
+    background: transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .cat-chip:hover { border-color: var(--muted2); color: var(--text); }
+  .cat-chip.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    padding: 12px 20px 0;
+    display: flex;
+    gap: 16px;
+  }
+
+  .stat {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+
+  .stat-num {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Entry list ── */
+  .list-wrap {
+    padding: 16px 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 0 4px;
+  }
+
+  .entry-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .entry-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .entry-card:hover { border-color: var(--border2); background: var(--surface2); }
+  .entry-card:hover::before { opacity: 1; }
+
+  .entry-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    font-size: 13px;
+  }
+
+  .entry-body { flex: 1; min-width: 0; }
+
+  .entry-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .entry-user {
+    font-size: 12px;
+    color: var(--muted2);
+    font-family: 'DM Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+
+  .entry-cat-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+
+  .entry-arrow {
+    color: var(--muted);
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 999px;
+    padding: 14px 28px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s;
+    z-index: 40;
+    box-shadow: 0 0 0 0 rgba(200,240,77,0);
+  }
+  .fab:hover { background: var(--accent2); transform: translateX(-50%) translateY(-2px); }
+  .fab:active { transform: translateX(-50%) scale(0.97); }
+
+  /* ── Drawer backdrop ── */
+  .drawer-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: flex-end;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .drawer-bg.open { display: flex; }
+
+  /* ── Drawer ── */
+  .drawer {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    border-top: 1.5px solid var(--border2);
+    padding: 24px 24px 40px;
+    width: 100%;
+    max-width: 430px;
+    animation: slideUp 0.25s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(60px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  .drawer-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--border2);
+    border-radius: 999px;
+    margin: 0 auto 20px;
+  }
+
+  .drawer-title {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .drawer-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+  }
+
+  /* ── Form ── */
+  .form-group { margin-bottom: 14px; }
+
+  .form-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .form-input, .form-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: 'Syne', sans-serif;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); }
+  .form-select option { background: var(--surface2); }
+
+  .pw-wrap { position: relative; }
+  .pw-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+  }
+  .pw-toggle:hover { color: var(--accent); }
+
+  .form-btns { display: flex; gap: 10px; margin-top: 20px; }
+
+  .btn-primary {
+    flex: 1;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary:hover { background: var(--accent2); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted2);
+    border: 1.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 12px 20px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--muted2); color: var(--text); }
+
+  /* ── Detail drawer ── */
+  .detail-field {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+
+  .detail-key {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .detail-val {
+    font-size: 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    word-break: break-all;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .copy-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: rgba(200,240,77,0.1); }
+
+  .detail-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1.5px solid rgba(224,82,82,0.3);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-danger:hover { background: rgba(224,82,82,0.1); border-color: var(--danger); }
+
+  /* ── Loading ── */
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 12px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 10px 18px;
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+    opacity: 0;
+    transition: all 0.2s;
+    z-index: 200;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Refresh btn ── */
+  .refresh-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    transition: color 0.15s;
+  }
+  .refresh-btn:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOCK SCREEN ══════════════ -->
+<div id="lock-screen">
+  <div class="lock-logo">⬡ Vault</div>
+  <div class="lock-title">Enter your PIN</div>
+  <div class="lock-sub">Your passwords, locked & loaded.</div>
+
+  <div class="pin-dots" id="pin-dots">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+
+  <div class="keypad">
+    <button class="key" onclick="keyPress('1')">1</button>
+    <button class="key" onclick="keyPress('2')">2</button>
+    <button class="key" onclick="keyPress('3')">3</button>
+    <button class="key" onclick="keyPress('4')">4</button>
+    <button class="key" onclick="keyPress('5')">5</button>
+    <button class="key" onclick="keyPress('6')">6</button>
+    <button class="key" onclick="keyPress('7')">7</button>
+    <button class="key" onclick="keyPress('8')">8</button>
+    <button class="key" onclick="keyPress('9')">9</button>
+    <button class="key empty"></button>
+    <button class="key" onclick="keyPress('0')">0</button>
+    <button class="key del" onclick="keyDel()">⌫</button>
+  </div>
+
+  <div class="lock-error" id="lock-error"></div>
+</div>
+
+<!-- ══════════════ MAIN APP ══════════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="header-top">
+      <div class="header-brand">⬡ Vault</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="refresh-btn" onclick="loadData()" title="Sync from sheet">↻</button>
+        <button class="header-lock-btn" onclick="lockApp()">lock</button>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" id="search" type="text" placeholder="Search passwords..." oninput="renderAll()" />
+    </div>
+  </div>
+
+  <!-- Categories -->
+  <div class="cats-wrap" id="cats"></div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <span class="stat-num" id="stat-total">0</span>
+      <span class="stat-label">total</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num" id="stat-cats">0</span>
+      <span class="stat-label">categories</span>
+    </div>
+  </div>
+
+  <!-- List -->
+  <div class="list-wrap" id="list">
+    <div class="loading"><div class="spinner"></div>Loading vault...</div>
+  </div>
+
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab" onclick="openAdd()" style="display:none">
+  <span style="font-size:18px;line-height:1">+</span> Add Password
+</button>
+
+<!-- ══════════════ ADD DRAWER ══════════════ -->
+<div class="drawer-bg" id="add-drawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">
+      New Password
+      <button class="drawer-close" onclick="closeAdd()">×</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Site / App</label>
+      <input class="form-input" id="f-name" type="text" placeholder="e.g. Gmail" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Username / Email</label>
+      <input class="form-input" id="f-user" type="text" placeholder="you@example.com" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <div class="pw-wrap">
+        <input class="form-input" id="f-pw" type="password" placeholder="••••••••" />
+        <button class="pw-toggle" onclick="toggleInput('f-pw',this)">show</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">URL (optional)</label>
+      <input class="form-input" id="f-url" type="text" placeholder="https://..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select class="form-select" id="f-cat">
+        <option value="Work">Work</option>
+        <option value="Social">Social</option>
+        <option value="Finance">Finance</option>
+        <option value="Shopping">Shopping</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes (optional)</label>
+      <input class="form-input" id="f-notes" type="text" placeholder="Any notes..." />
+    </div>
+
+    <div class="form-btns">
+      <button class="btn-ghost" onclick="closeAdd()">Cancel</button>
+      <button class="btn-primary" onclick="saveNew()">Save to Sheet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ DETAIL DRAWER ══════════════ -->
+<div class="drawer-bg" id="detail-drawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">
+      <span id="d-title">Details</span>
+      <button class="drawer-close" onclick="closeDetail()">×</button>
+    </div>
+
+    <div class="detail-field">
+      <div class="detail-key">Username / Email</div>
+      <div class="detail-val">
+        <span id="d-user"></span>
+        <button class="copy-btn" onclick="copyField('d-user')">copy</button>
+      </div>
+    </div>
+
+    <div class="detail-field">
+      <div class="detail-key">Password</div>
+      <div class="detail-val">
+        <span id="d-pw" data-hidden="true">••••••••</span>
+        <div style="display:flex;gap:8px;">
+          <button class="copy-btn" onclick="revealPw()">show</button>
+          <button class="copy-btn" onclick="copyField('d-pw-real')">copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-field" id="d-url-wrap" style="display:none">
+      <div class="detail-key">URL</div>
+      <div class="detail-val">
+        <span id="d-url"></span>
+        <button class="copy-btn" onclick="copyField('d-url')">copy</button>
+      </div>
+    </div>
+
+    <div class="detail-field" id="d-notes-wrap" style="display:none">
+      <div class="detail-key">Notes</div>
+      <div class="detail-val"><span id="d-notes"></span></div>
+    </div>
+
+    <div class="detail-field">
+      <div class="detail-key">Category</div>
+      <div class="detail-val"><span id="d-cat"></span></div>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn-danger" onclick="deleteEntry()">Delete</button>
+      <button class="btn-primary" style="flex:1" onclick="closeDetail()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIG — update these if your columns differ
+// ══════════════════════════════════════════
+const SHEET_ID  = '1E-q-7s_2T_M332vzbgHjZwWV_tWye8pitZpFMbWst7U';
+const API_KEY   = 'AIzaSyDYqXqMwD7V-kH8SmbKDLEps0uGM0Eayo4';
+const SHEET_TAB = 'Sheet1';  // change if your tab has a different name
+
+// Column mapping (0-indexed). Adjust if your sheet differs.
+// Expected headers: Name | Username | Password | URL | Category | Notes
+const COL = { name:0, user:1, password:2, url:3, category:4, notes:5 };
+
+// PIN — change this to your preferred 4-digit PIN
+const CORRECT_PIN = '1234';
+
+// ══════════════════════════════════════════
+//  PIN LOCK
+// ══════════════════════════════════════════
+let pin = '';
+
+function keyPress(d) {
+  if (pin.length >= 4) return;
+  pin += d;
+  updateDots();
+  if (pin.length === 4) checkPin();
+}
+
+function keyDel() {
+  pin = pin.slice(0, -1);
+  updateDots();
+  document.getElementById('lock-error').textContent = '';
+  document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('error'));
+}
+
+function updateDots() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('d' + i);
+    dot.classList.toggle('filled', i < pin.length);
+  }
+}
+
+function checkPin() {
+  if (pin === CORRECT_PIN) {
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('fab').style.display = 'flex';
+    loadData();
+  } else {
+    document.querySelectorAll('.pin-dot').forEach(d => { d.classList.remove('filled'); d.classList.add('error'); });
+    document.getElementById('lock-error').textContent = 'Incorrect PIN. Try again.';
+    pin = '';
+    setTimeout(() => {
+      document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('error'));
+    }, 600);
+  }
+}
+
+function lockApp() {
+  pin = '';
+  updateDots();
+  document.getElementById('lock-error').textContent = '';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('fab').style.display = 'none';
+  document.getElementById('lock-screen').style.display = 'flex';
+}
+
+// ══════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════
+let entries = [];
+let activeCat = 'All';
+
+async function loadData() {
+  document.getElementById('list').innerHTML = '<div class="loading"><div class="spinner"></div>Syncing from sheet...</div>';
+  const range = encodeURIComponent(`${SHEET_TAB}!A:F`);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?key=${API_KEY}`;
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const rows = data.values || [];
+    // skip header row
+    entries = rows.slice(1).map((r, i) => ({
+      id:       i,
+      name:     r[COL.name]     || '',
+      user:     r[COL.user]     || '',
+      password: r[COL.password] || '',
+      url:      r[COL.url]      || '',
+      category: r[COL.category] || 'Other',
+      notes:    r[COL.notes]    || '',
+    })).filter(e => e.name);
+    renderAll();
+  } catch(e) {
+    document.getElementById('list').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div>Could not load sheet.<br><small style="font-family:monospace;color:var(--muted);font-size:11px">${e.message}</small></div>`;
+  }
+}
+
+// ══════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════
+const CAT_COLORS = {
+  Work:          { bg:'rgba(59,130,246,0.15)',  color:'#60a5fa' },
+  Social:        { bg:'rgba(168,85,247,0.15)',  color:'#c084fc' },
+  Finance:       { bg:'rgba(34,197,94,0.15)',   color:'#4ade80' },
+  Shopping:      { bg:'rgba(251,146,60,0.15)',  color:'#fb923c' },
+  Entertainment: { bg:'rgba(236,72,153,0.15)',  color:'#f472b6' },
+  Other:         { bg:'rgba(148,163,184,0.15)', color:'#94a3b8' },
+};
+
+function getCatColor(cat) {
+  return CAT_COLORS[cat] || CAT_COLORS.Other;
+}
+
+function getInitials(name) {
+  return name.slice(0,2).toUpperCase();
+}
+
+function allCats() {
+  return ['All', ...new Set(entries.map(e => e.category))];
+}
+
+function filtered() {
+  const q = document.getElementById('search').value.toLowerCase();
+  return entries.filter(e => {
+    const matchCat = activeCat === 'All' || e.category === activeCat;
+    const matchQ   = !q || e.name.toLowerCase().includes(q) || e.user.toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+}
+
+function renderAll() {
+  renderCats();
+  renderList();
+  renderStats();
+}
+
+function renderCats() {
+  const cats = allCats();
+  document.getElementById('cats').innerHTML = cats.map(c =>
+    `<button class="cat-chip${c === activeCat ? ' active' : ''}" onclick="setCat('${c}')">${c}</button>`
+  ).join('');
+}
+
+function setCat(c) { activeCat = c; renderAll(); }
+
+function renderStats() {
+  document.getElementById('stat-total').textContent = entries.length;
+  document.getElementById('stat-cats').textContent  = new Set(entries.map(e => e.category)).size;
+}
+
+function renderList() {
+  const list = filtered();
+  if (!list.length) {
+    document.getElementById('list').innerHTML = `<div class="empty"><div class="empty-icon">🔐</div>${entries.length ? 'No matches found.' : 'Your vault is empty. Add your first password!'}</div>`;
+    return;
+  }
+
+  // group by category
+  const grouped = {};
+  list.forEach(e => {
+    if (!grouped[e.category]) grouped[e.category] = [];
+    grouped[e.category].push(e);
+  });
+
+  let html = '';
+  for (const [cat, items] of Object.entries(grouped)) {
+    if (activeCat === 'All') html += `<div class="section-label">${cat}</div>`;
+    items.forEach(e => {
+      const cc = getCatColor(e.category);
+      html += `
+        <div class="entry-card" onclick="openDetail(${e.id})">
+          <div class="entry-icon" style="background:${cc.bg};color:${cc.color}">${getInitials(e.name)}</div>
+          <div class="entry-body">
+            <div class="entry-name">${escHtml(e.name)}</div>
+            <div class="entry-user">${escHtml(e.user)}</div>
+          </div>
+          <span class="entry-cat-badge" style="background:${cc.bg};color:${cc.color}">${escHtml(e.category)}</span>
+          <span class="entry-arrow">›</span>
+        </div>`;
+    });
+  }
+  document.getElementById('list').innerHTML = html;
+}
+
+// ══════════════════════════════════════════
+//  DETAIL
+// ══════════════════════════════════════════
+let currentEntry = null;
+let pwRevealed   = false;
+
+function openDetail(id) {
+  currentEntry = entries.find(e => e.id === id);
+  if (!currentEntry) return;
+  pwRevealed = false;
+
+  document.getElementById('d-title').textContent = currentEntry.name;
+  document.getElementById('d-user').textContent  = currentEntry.user;
+  document.getElementById('d-pw').textContent    = '••••••••';
+  document.getElementById('d-pw').dataset.hidden = 'true';
+  document.getElementById('d-cat').textContent   = currentEntry.category;
+
+  const urlWrap = document.getElementById('d-url-wrap');
+  if (currentEntry.url) {
+    document.getElementById('d-url').textContent = currentEntry.url;
+    urlWrap.style.display = 'block';
+  } else {
+    urlWrap.style.display = 'none';
+  }
+
+  const notesWrap = document.getElementById('d-notes-wrap');
+  if (currentEntry.notes) {
+    document.getElementById('d-notes').textContent = currentEntry.notes;
+    notesWrap.style.display = 'block';
+  } else {
+    notesWrap.style.display = 'none';
+  }
+
+  document.getElementById('detail-drawer').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-drawer').classList.remove('open');
+  currentEntry = null;
+}
+
+function revealPw() {
+  const el  = document.getElementById('d-pw');
+  const btn = el.parentElement.querySelector('.copy-btn');
+  pwRevealed = !pwRevealed;
+  el.textContent    = pwRevealed ? currentEntry.password : '••••••••';
+  el.style.fontSize = pwRevealed ? '13px' : '16px';
+  el.dataset.hidden = pwRevealed ? 'false' : 'true';
+  btn.textContent   = pwRevealed ? 'hide' : 'show';
+}
+
+function copyField(id) {
+  let text = '';
+  if (id === 'd-pw-real') {
+    text = currentEntry ? currentEntry.password : '';
+  } else {
+    text = document.getElementById(id)?.textContent || '';
+  }
+  navigator.clipboard.writeText(text).then(() => showToast('Copied!')).catch(() => showToast('Copy failed'));
+}
+
+function deleteEntry() {
+  if (!currentEntry) return;
+  entries = entries.filter(e => e.id !== currentEntry.id);
+  closeDetail();
+  renderAll();
+  showToast('Deleted locally — remove from sheet too');
+}
+
+// ══════════════════════════════════════════
+//  ADD NEW
+// ══════════════════════════════════════════
+function openAdd() { document.getElementById('add-drawer').classList.add('open'); }
+
+function closeAdd() {
+  document.getElementById('add-drawer').classList.remove('open');
+  ['f-name','f-user','f-pw','f-url','f-notes'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function saveNew() {
+  const name = document.getElementById('f-name').value.trim();
+  const user = document.getElementById('f-user').value.trim();
+  const pw   = document.getElementById('f-pw').value;
+  const url  = document.getElementById('f-url').value.trim();
+  const cat  = document.getElementById('f-cat').value;
+  const notes= document.getElementById('f-notes').value.trim();
+
+  if (!name || !user || !pw) { showToast('Name, username & password required'); return; }
+
+  // Add locally
+  const newEntry = { id: Date.now(), name, user, password: pw, url, category: cat, notes };
+  entries.push(newEntry);
+  closeAdd();
+  renderAll();
+
+  // Append to Google Sheet via API
+  const range = encodeURIComponent(`${SHEET_TAB}!A:F`);
+  const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&key=${API_KEY}`;
+  try {
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[name, user, pw, url, cat, notes]] })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    showToast('✓ Saved to sheet!');
+  } catch(e) {
+    showToast('Saved locally only — sheet write failed');
+  }
+}
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+function toggleInput(id, btn) {
+  const el = document.getElementById(id);
+  const hidden = el.type === 'password';
+  el.type = hidden ? 'text' : 'password';
+  btn.textContent = hidden ? 'hide' : 'show';
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// Close drawers on backdrop click
+document.getElementById('add-drawer').addEventListener('click', function(e) {
+  if (e.target === this) closeAdd();
+});
+document.getElementById('detail-drawer').addEventListener('click', function(e) {
+  if (e.target === this) closeDetail();
+});
+</script>
+</body>
+</html>
