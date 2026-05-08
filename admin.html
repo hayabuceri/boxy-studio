@@ -256,8 +256,15 @@ Cas transport RM39 (39km)"></textarea>
         <div class="field"><label>Date (DD/MM/YYYY)</label><input id="f_date" type="text"></div>
         <div class="field"><label>Package</label><select id="f_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
         <div class="field"><label>Time (e.g. 7.00pm-9.00pm)</label><input id="f_time" type="text"></div>
-        <div class="field"><label>Price (e.g. RM600 (depo 100))</label><input id="f_price" type="text"></div>
+        <div class="field"><label>Package price (RM)</label><input id="f_pkgprice" type="number" placeholder="e.g. 600" oninput="calcBalance('f')"></div>
+        <div class="field"><label>Deposit paid (RM)</label><input id="f_depo" type="number" placeholder="e.g. 100" oninput="calcBalance('f')"></div>
+        <div class="field"><label>Discount (RM)</label><input id="f_discount" type="number" placeholder="e.g. 0" oninput="calcBalance('f')"></div>
+        <div class="field" style="justify-content:flex-end;padding-top:16px;">
+          <label style="color:var(--muted);">Balance</label>
+          <div id="f_balance" style="font-family:var(--fd);font-size:18px;color:var(--accent);">—</div>
+        </div>
         <div class="field"><label>Distance km</label><input id="f_km" type="number" placeholder="e.g. 43"></div>
+        <div class="field"><label>Transport rate</label><select id="f_txrate"><option value="1.00">RM1.00/km (New customer)</option><option value="0.70">RM0.70/km (Returning customer)</option></select></div>
         <div class="field"><label>Total strips</label><input id="f_strips" type="number" placeholder="e.g. 200"></div>
         <div class="field full"><label>Location</label><input id="f_loc" type="text"></div>
       </div>
@@ -334,9 +341,11 @@ Cas transport RM39 (39km)"></textarea>
         <div class="field"><label>Date</label><input id="i_date" type="text" placeholder="DD/MM/YYYY"></div>
         <div class="field"><label>Package</label><select id="i_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
         <div class="field"><label>Package price (RM)</label><input id="i_price" type="number" placeholder="e.g. 600"></div>
+        <div class="field"><label>Discount (RM)</label><input id="i_discount" type="number" placeholder="0"></div>
         <div class="field"><label>Distance km</label><input id="i_km" type="number" placeholder="e.g. 43"></div>
+        <div class="field"><label>Transport rate</label><select id="i_txrate"><option value="1.00">RM1.00/km (New customer)</option><option value="0.70">RM0.70/km (Returning customer)</option></select></div>
         <div class="field" style="border:1px solid var(--accent);border-radius:8px;padding:8px 11px;background:rgba(200,240,96,.04);">
-          <label style="color:var(--accent);">Amount paid / deposit (RM)</label>
+          <label style="color:var(--accent);">Deposit / Amount paid (RM)</label>
           <input id="i_depo" type="number" placeholder="e.g. 100 or full amount" style="background:transparent;border:none;padding:4px 0;color:var(--text);font-family:var(--fm);font-size:12px;outline:none;width:100%;">
         </div>
       </div>
@@ -409,9 +418,17 @@ Cas transport RM39 (39km)"></textarea>
       <div class="field"><label>Date (DD/MM/YYYY)</label><input id="e_date" type="text"></div>
       <div class="field"><label>Package</label><select id="e_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
       <div class="field"><label>Time</label><input id="e_time" type="text"></div>
-      <div class="field"><label>Price</label><input id="e_price" type="text"></div>
+      <div class="field full"><label>Location</label><input id="e_loc" type="text"></div>
       <div class="field"><label>Distance km</label><input id="e_km" type="number"></div>
+      <div class="field"><label>Transport rate</label><select id="e_txrate"><option value="1.00">RM1.00/km (New)</option><option value="0.70">RM0.70/km (Returning)</option></select></div>
+      <div class="field"><label>Package price (RM)</label><input id="e_pkgprice" type="number" oninput="calcBalance('e')"></div>
+      <div class="field"><label>Deposit paid (RM)</label><input id="e_depo" type="number" oninput="calcBalance('e')"></div>
+      <div class="field"><label>Discount (RM)</label><input id="e_discount" type="number" placeholder="0" oninput="calcBalance('e')"></div>
       <div class="field"><label>Total strips</label><input id="e_strips" type="number"></div>
+      <div class="field" style="justify-content:flex-end;padding-top:16px;">
+        <label style="color:var(--muted);">Balance</label>
+        <div id="e_balance" style="font-family:var(--fd);font-size:18px;color:var(--accent);">—</div>
+      </div>
       <div class="field full"><label>Location</label><input id="e_loc" type="text"></div>
     </div>
     <div class="modal-actions">
@@ -488,11 +505,14 @@ function applyUser(u){
 }
 function tryRestoreSession(){
   const s=loadSession();
-  if(s&&s.token&&s.user){
-    token=s.token;applyUser(s.user);
+  if(s&&s.user){
+    applyUser(s.user);
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('appScreen').style.display='block';
-    loadSheet();
+    // Token may be expired — try silent refresh first, fall back to stored token
+    if(s.token){token=s.token;}
+    // Defer sheet load until GSI is ready, then do silent token refresh
+    window._pendingSheetLoad=true;
     return true;
   }
   return false;
@@ -500,7 +520,18 @@ function tryRestoreSession(){
 // Restore session immediately — don't wait for GSI
 document.addEventListener('DOMContentLoaded',()=>{tryRestoreSession();});
 window.addEventListener('load',()=>{
-  const doInit=()=>{if(!tokenClient)initG();};
+  const doInit=()=>{
+    if(!tokenClient)initG();
+    // If we restored a session, do a silent token refresh now
+    if(window._pendingSheetLoad){
+      window._pendingSheetLoad=false;
+      // Try silent (no UI) token refresh
+      if(tokenClient){
+        try{tokenClient.requestAccessToken({prompt:''});}
+        catch(e){loadSheet();}// fallback: try with existing token
+      } else {loadSheet();}
+    }
+  };
   const s=document.querySelector('script[src*="gsi"]');
   if(s)s.addEventListener('load',()=>setTimeout(doInit,200));else setTimeout(doInit,500);
 });
@@ -540,7 +571,7 @@ async function loadSheet(){
     }
     if(d.error)throw new Error(d.error.message);
     allBookings=(d.values||[]).slice(1).filter(r=>r[0]&&r[0].trim()).map((r,i)=>({
-      idx:i,client:r[0]||'',event:r[1]||'',date:r[2]||'',pkg:r[3]||'',time:r[4]||'',price:r[5]||'',location:r[6]||'',km:r[7]||'',strips:r[8]||''
+      idx:i,client:r[0]||'',event:r[1]||'',date:r[2]||'',pkg:r[3]||'',time:r[4]||'',price:r[5]||'',location:r[6]||'',km:r[7]||'',strips:r[8]||'',txrate:r[9]||'1.00'
     }));
     toast('Synced — '+allBookings.length+' bookings');
     const pg=document.querySelector('.page.active');
@@ -552,6 +583,7 @@ async function loadSheet(){
 // HELPERS
 const pPrice=s=>{const m=(s||'').match(/RM\s*([\d,.]+)/i);return m?parseFloat(m[1].replace(/,/g,'')):0;};
 const pDepo=s=>{if(!s)return 0;if(/full payment/i.test(s))return pPrice(s);const m=s.match(/depo\w*\s*(rm\s*)?(\d+)/i);return m?parseFloat(m[2]):0;};
+const pDiscount=s=>{if(!s)return 0;const m=s.match(/disc\s*(rm\s*)?(\d+)/i);return m?parseFloat(m[2]):0;};
 const pDate=s=>{if(!s)return null;const p=s.split('/');if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]);const d=new Date(s);return isNaN(d)?null:d;};
 const fDate=s=>{const d=pDate(s);return d?d.toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'}):s;};
 const mKey=s=>{const d=pDate(s);if(!d)return null;return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
@@ -579,7 +611,12 @@ function parseEntry(){
   document.getElementById('f_date').value=date;
   document.getElementById('f_pkg').value=pkg;
   document.getElementById('f_time').value=time;
-  document.getElementById('f_price').value=price;
+  // Parse price into structured fields
+  const priceNum=price?parseFloat(price.replace(/[^\d.]/g,''))||'':'';
+  document.getElementById('f_pkgprice').value=priceNum;
+  document.getElementById('f_depo').value='';
+  document.getElementById('f_discount').value='';
+  document.getElementById('f_balance').textContent=priceNum?'RM'+parseFloat(priceNum).toFixed(2):'—';
   document.getElementById('f_km').value=km;
   document.getElementById('f_loc').value=location;
   document.getElementById('reviewCard').style.display='block';
@@ -601,10 +638,36 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 function cancelEntry(){document.getElementById('reviewCard').style.display='none';document.getElementById('waText').value='';setSt('parseStatus','');}
 
+// BALANCE CALCULATOR
+function calcBalance(pre){
+  const pkg=parseFloat(document.getElementById(pre+'_pkgprice').value)||0;
+  const depo=parseFloat(document.getElementById(pre+'_depo').value)||0;
+  const disc=parseFloat(document.getElementById(pre+'_discount').value)||0;
+  const bal=Math.max(0,pkg-disc-depo);
+  const el=document.getElementById(pre+'_balance');
+  if(el)el.textContent='RM'+bal.toFixed(2);
+}
+
+// Build the price string from structured fields (stored in sheet as before)
+function buildPriceStr(pkgPrice,depo,discount){
+  let s='RM'+parseFloat(pkgPrice||0).toFixed(0);
+  if(parseFloat(discount||0)>0)s+=' (disc RM'+parseFloat(discount).toFixed(0)+')';
+  if(parseFloat(depo||0)>0){
+    const full=(parseFloat(depo||0)>=(parseFloat(pkgPrice||0)-parseFloat(discount||0)));
+    s+=full?' (full payment)':' (depo RM'+parseFloat(depo).toFixed(0)+')';
+  }
+  return s;
+}
+
 // SUBMIT
 async function submitEntry(){
   if(!token){toast('Not signed in','err');return;}
-  const row=[document.getElementById('f_client').value.trim(),document.getElementById('f_event').value.trim(),document.getElementById('f_date').value.trim(),document.getElementById('f_pkg').value,document.getElementById('f_time').value.trim(),document.getElementById('f_price').value.trim(),document.getElementById('f_loc').value.trim(),document.getElementById('f_km').value.trim(),document.getElementById('f_strips').value.trim()];
+  const pkgPrice=document.getElementById('f_pkgprice').value.trim();
+  const depo=document.getElementById('f_depo').value.trim();
+  const discount=document.getElementById('f_discount').value.trim();
+  const txrate=document.getElementById('f_txrate').value;
+  const priceStr=buildPriceStr(pkgPrice,depo,discount);
+  const row=[document.getElementById('f_client').value.trim(),document.getElementById('f_event').value.trim(),document.getElementById('f_date').value.trim(),document.getElementById('f_pkg').value,document.getElementById('f_time').value.trim(),priceStr,document.getElementById('f_loc').value.trim(),document.getElementById('f_km').value.trim(),document.getElementById('f_strips').value.trim(),txrate];
   if(!row[0]||!row[2]){toast('Client name and Date required','err');return;}
   const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='Saving...';
   setSt('submitStatus','<span class="spinner"></span>');
@@ -613,7 +676,7 @@ async function submitEntry(){
       {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
     const d=await r.json();if(d.error)throw new Error(d.error.message);
     toast(row[0]+' saved ✓');
-    allBookings.push({client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6],km:row[7],strips:row[8]});
+    allBookings.push({client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6],km:row[7],strips:row[8],txrate:row[9]});
     cancelEntry();setSt('submitStatus','');
   }catch(e){toast('Save failed: '+e.message,'err');setSt('submitStatus','<span class="pill err">'+e.message+'</span>');}
   btn.disabled=false;btn.textContent='Save to Sheet ↑';
@@ -685,22 +748,31 @@ function openEdit(idx){
   document.getElementById('e_date').value=b.date;
   document.getElementById('e_pkg').value=b.pkg||'2 JAM';
   document.getElementById('e_time').value=b.time;
-  document.getElementById('e_price').value=b.price;
+  document.getElementById('e_pkgprice').value=pPrice(b.price)||'';
+  document.getElementById('e_depo').value=pDepo(b.price)||'';
+  document.getElementById('e_discount').value=pDiscount(b.price)||'';
   document.getElementById('e_km').value=b.km||'';
+  document.getElementById('e_txrate').value=b.txrate||'1.00';
   document.getElementById('e_strips').value=b.strips||'';
   document.getElementById('e_loc').value=b.location;
+  calcBalance('e');
   document.getElementById('editOverlay').classList.add('open');
 }
 function closeEdit(){document.getElementById('editOverlay').classList.remove('open');}
 async function saveEdit(){
   if(!token){toast('Not signed in','err');return;}
-  const row=[document.getElementById('e_client').value.trim(),document.getElementById('e_event').value.trim(),document.getElementById('e_date').value.trim(),document.getElementById('e_pkg').value,document.getElementById('e_time').value.trim(),document.getElementById('e_price').value.trim(),document.getElementById('e_loc').value.trim(),document.getElementById('e_km').value.trim(),document.getElementById('e_strips').value.trim()];
-  const range=`${SHEET_NAME}!A${editIdx+2}:I${editIdx+2}`;
+  const pkgPrice=document.getElementById('e_pkgprice').value.trim();
+  const depo=document.getElementById('e_depo').value.trim();
+  const discount=document.getElementById('e_discount').value.trim();
+  const txrate=document.getElementById('e_txrate').value;
+  const priceStr=buildPriceStr(pkgPrice,depo,discount);
+  const row=[document.getElementById('e_client').value.trim(),document.getElementById('e_event').value.trim(),document.getElementById('e_date').value.trim(),document.getElementById('e_pkg').value,document.getElementById('e_time').value.trim(),priceStr,document.getElementById('e_loc').value.trim(),document.getElementById('e_km').value.trim(),document.getElementById('e_strips').value.trim(),txrate];
+  const range=`${SHEET_NAME}!A${editIdx+2}:J${editIdx+2}`;
   try{
     const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
       {method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
     const d=await r.json();if(d.error)throw new Error(d.error.message);
-    allBookings[editIdx]={...allBookings[editIdx],client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6],km:row[7],strips:row[8]};
+    allBookings[editIdx]={...allBookings[editIdx],client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6],km:row[7],strips:row[8],txrate:row[9]};
     toast('Updated ✓');closeEdit();renderBookings();
   }catch(e){toast('Update failed: '+e.message,'err');}
 }
@@ -818,20 +890,21 @@ function invSearchFilter(){
   }).join('');
 }
 
-// Generate straight from record (no edits)
 function quickGenInv(idx){
   const b=allBookings[idx];
-  showInvoice({client:b.client,date:b.date,pkg:b.pkg,pkgPrice:pPrice(b.price),km:parseFloat(b.km)||0,depo:pDepo(b.price)},[]);
+  const disc=pDiscount(b.price);
+  showInvoice({client:b.client,date:b.date,pkg:b.pkg,pkgPrice:pPrice(b.price),km:parseFloat(b.km)||0,depo:pDepo(b.price),discount:disc,txrate:parseFloat(b.txrate||1.00)},[]); 
 }
 
-// Update button — load panel with booking data, scroll to it
 function openInvUpdate(idx){
   const b=allBookings[idx];
   document.getElementById('i_client').value=b.client||'';
   document.getElementById('i_date').value=b.date||'';
   document.getElementById('i_pkg').value=b.pkg||'2 JAM';
   document.getElementById('i_price').value=pPrice(b.price)||'';
+  document.getElementById('i_discount').value=pDiscount(b.price)||'';
   document.getElementById('i_km').value=b.km||'';
+  document.getElementById('i_txrate').value=b.txrate||'1.00';
   document.getElementById('i_depo').value=pDepo(b.price)||'';
   ['ia_guest','ia_size','ia_xhour','ia_key'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   const kq=document.getElementById('ia_key_qty');if(kq){kq.value='';kq.style.display='none';}
@@ -844,8 +917,9 @@ function openInvUpdate(idx){
 
 function clearInvPanel(){
   document.getElementById('invEditCard').style.display='none';
-  ['i_client','i_date','i_price','i_km','i_depo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['i_client','i_date','i_price','i_km','i_depo','i_discount'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('i_pkg').value='2 JAM';
+  document.getElementById('i_txrate').value='1.00';
   ['ia_guest','ia_size','ia_xhour','ia_key'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   const kq=document.getElementById('ia_key_qty');if(kq){kq.value='';kq.style.display='none';}
 }
@@ -857,7 +931,9 @@ function buildInvoiceFromPanel(){
     pkg:document.getElementById('i_pkg').value,
     pkgPrice:parseFloat(document.getElementById('i_price').value)||0,
     km:parseFloat(document.getElementById('i_km').value)||0,
-    depo:parseFloat(document.getElementById('i_depo').value)||0
+    depo:parseFloat(document.getElementById('i_depo').value)||0,
+    discount:parseFloat(document.getElementById('i_discount').value)||0,
+    txrate:parseFloat(document.getElementById('i_txrate').value)||1.00
   };
   const addons=getAddons('ia_');
   showInvoice(b,addons);
@@ -870,7 +946,16 @@ function openInvForBooking(idx){
 }
 
 function openInvFromAdd(){
-  const b={client:document.getElementById('f_client').value,date:document.getElementById('f_date').value,pkg:document.getElementById('f_pkg').value,pkgPrice:pPrice(document.getElementById('f_price').value),km:parseFloat(document.getElementById('f_km').value)||0,depo:pDepo(document.getElementById('f_price').value)};
+  const b={
+    client:document.getElementById('f_client').value,
+    date:document.getElementById('f_date').value,
+    pkg:document.getElementById('f_pkg').value,
+    pkgPrice:parseFloat(document.getElementById('f_pkgprice').value)||0,
+    km:parseFloat(document.getElementById('f_km').value)||0,
+    depo:parseFloat(document.getElementById('f_depo').value)||0,
+    discount:parseFloat(document.getElementById('f_discount').value)||0,
+    txrate:parseFloat(document.getElementById('f_txrate').value)||1.00
+  };
   const addons=getAddons('ao_');
   showInvoice(b,addons);
 }
@@ -895,16 +980,21 @@ function showInvoice(b,addons){
 function closeInv(){document.getElementById('invOverlay').classList.remove('open');}
 function buildInvHTML(b,addons,num){
   const km=b.km||0;
-  const trans=parseFloat((km*1.0).toFixed(2));
+  const txrate=parseFloat(b.txrate||1.00);
+  const trans=parseFloat((km*txrate).toFixed(2));
+  const discount=parseFloat(b.discount||0);
   const addonTotal=(addons||[]).reduce((s,a)=>s+a.amt,0);
   const sub=b.pkgPrice+trans+addonTotal;
-  const bal=Math.max(0,sub-b.depo).toFixed(2);
+  const subAfterDisc=sub-discount;
+  const bal=Math.max(0,subAfterDisc-b.depo).toFixed(2);
   const pkgH=b.pkg?b.pkg.replace(' JAM',''):'-';
+  const txLabel=txrate===0.70?'RM0.70/km (returning)':'RM1.00/km';
   const rows=[
     {n:'Package Photobooth Service',r:'RM'+b.pkgPrice.toFixed(2),u:pkgH+' hours',a:'RM'+b.pkgPrice.toFixed(2)},
-    {n:'Transportation Charge',r:'RM1.00/km',u:km+'km',a:'RM'+trans.toFixed(2)},
+    {n:'Transportation Charge',r:txLabel,u:km+'km',a:'RM'+trans.toFixed(2)},
     ...(addons||[]).map(x=>({n:x.name,r:x.rate,u:String(x.unit),a:'RM'+x.amt.toFixed(2)}))
   ];
+  const discRow=discount>0?`<tr><td>DISCOUNT:</td><td>- RM${discount.toFixed(2)}</td></tr>`:'';
   return`<div id="invPrint" class="inv-wrap">
   <div class="inv-hdr">
     <div><div style="font-size:10px;letter-spacing:.15em;color:#888;margin-bottom:5px;">PHOTOBOOTH</div><img class="inv-logo-img" src="${LOGO_B64}" alt="Boxy Studio"></div>
@@ -922,7 +1012,8 @@ function buildInvHTML(b,addons,num){
   <div style="display:flex;justify-content:flex-end;">
     <div class="inv-totals"><table>
       <tr><td>SUBTOTAL:</td><td>RM${sub.toFixed(2)}</td></tr>
-      <tr><td>PAID:</td><td>- RM${b.depo.toFixed(2)}</td></tr>
+      ${discRow}
+      <tr><td>PAID / DEPOSIT:</td><td>- RM${b.depo.toFixed(2)}</td></tr>
       <tr class="inv-bal"><td>TOTAL BALANCE:</td><td>RM${bal}</td></tr>
     </table></div>
   </div>
