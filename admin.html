@@ -149,7 +149,7 @@ textarea::placeholder{color:var(--muted2);}
 /* INVOICE */
 .inv-wrap{background:#fff;color:#111;padding:36px;border-radius:8px;font-family:Arial,sans-serif;font-size:12px;line-height:1.6;}
 .inv-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;}
-.inv-logo-img{height:50px;object-fit:contain;}
+.inv-logo-img{height:80px;object-fit:contain;}
 .inv-num-lbl{font-size:24px;font-weight:700;letter-spacing:2px;text-align:right;}
 .inv-num-val{font-size:20px;text-align:right;}
 .inv-divider{height:1px;background:#ddd;margin:14px 0;}
@@ -217,6 +217,7 @@ textarea::placeholder{color:var(--muted2);}
     </div>
     <div class="nav-right">
       <button class="icon-btn" onclick="loadSheet()" id="syncBtn">↻</button>
+      <button class="icon-btn" onclick="window.open('https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit','_blank')" title="Open Google Sheet">⊞ Sheet</button>
       <div class="user-pill">
         <img id="uAv" class="user-av" src="" alt="" style="display:none;">
         <span id="uName">—</span>
@@ -228,9 +229,17 @@ textarea::placeholder{color:var(--muted2);}
   <!-- ADD -->
   <div class="page active" id="page-add">
     <p class="page-title">Add <em>booking</em></p>
-    <p class="page-sub">Paste WhatsApp booking form or your quote message</p>
-    <div class="card">
-      <div class="card-lbl">Step 1 — Paste WhatsApp</div>
+    <p class="page-sub">Paste WhatsApp message to auto-fill, or enter details manually</p>
+
+    <!-- Mode toggle -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;">
+      <button class="m-btn active" id="modeWa" onclick="setAddMode('wa')">📋 From WhatsApp</button>
+      <button class="m-btn" id="modeManual" onclick="setAddMode('manual')">✏️ Manual Entry</button>
+    </div>
+
+    <!-- WhatsApp paste card -->
+    <div class="card" id="waCard">
+      <div class="card-lbl">Paste WhatsApp message</div>
       <textarea id="waText" placeholder="Paste booking form OR quote:
 
 Nama penuh: Siti Aishah
@@ -248,14 +257,17 @@ Cas transport RM39 (39km)"></textarea>
         <span id="parseStatus"></span>
       </div>
     </div>
+
+    <!-- Review / Manual card -->
     <div class="card" id="reviewCard" style="display:none;">
-      <div class="card-lbl">Step 2 — Review & confirm</div>
+      <div class="card-lbl" id="reviewCardLbl">Step 2 — Review & confirm</div>
       <div class="fields">
         <div class="field"><label>Client name</label><input id="f_client" type="text"></div>
         <div class="field"><label>Event type</label><input id="f_event" type="text"></div>
         <div class="field"><label>Date (DD/MM/YYYY)</label><input id="f_date" type="text"></div>
         <div class="field"><label>Package</label><select id="f_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
         <div class="field"><label>Time (e.g. 7.00pm-9.00pm)</label><input id="f_time" type="text"></div>
+        <div class="field full"><label>Location</label><input id="f_loc" type="text"></div>
         <div class="field"><label>Package price (RM)</label><input id="f_pkgprice" type="number" placeholder="e.g. 600" oninput="calcBalance('f')"></div>
         <div class="field"><label>Deposit paid (RM)</label><input id="f_depo" type="number" placeholder="e.g. 100" oninput="calcBalance('f')"></div>
         <div class="field"><label>Discount (RM)</label><input id="f_discount" type="number" placeholder="e.g. 0" oninput="calcBalance('f')"></div>
@@ -266,7 +278,10 @@ Cas transport RM39 (39km)"></textarea>
         <div class="field"><label>Distance km</label><input id="f_km" type="number" placeholder="e.g. 43"></div>
         <div class="field"><label>Transport rate</label><select id="f_txrate"><option value="1.00">RM1.00/km (New customer)</option><option value="0.70">RM0.70/km (Returning customer)</option></select></div>
         <div class="field"><label>Total strips</label><input id="f_strips" type="number" placeholder="e.g. 200"></div>
-        <div class="field full"><label>Location</label><input id="f_loc" type="text"></div>
+        <div class="field" style="align-items:flex-end;">
+          <label style="color:var(--muted);">Notes</label>
+          <input id="f_notes" type="text" placeholder="e.g. outdoor, needs extension cable">
+        </div>
       </div>
       <div style="margin-top:12px;">
         <div class="card-lbl">Add-ons</div>
@@ -282,7 +297,7 @@ Cas transport RM39 (39km)"></textarea>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-p" onclick="submitEntry()" id="submitBtn">Save to Sheet ↑</button>
-        <button class="btn btn-g" onclick="cancelEntry()">Cancel</button>
+        <button class="btn btn-g" onclick="cancelEntry()">Clear</button>
         <button class="btn btn-g" onclick="openInvFromAdd()">Preview Invoice</button>
         <span id="submitStatus"></span>
       </div>
@@ -303,11 +318,17 @@ Cas transport RM39 (39km)"></textarea>
   <!-- CALENDAR -->
   <div class="page" id="page-calendar">
     <p class="page-title">Upcoming <em>schedule</em></p>
-    <p class="page-sub">Search · filter by month · select &amp; export .ics</p>
+    <p class="page-sub">Track which bookings you've added to your calendar</p>
     <div class="search-row">
       <input class="search-input" id="calSearch" placeholder="🔍  Search client, event, location..." oninput="renderCalendar()">
     </div>
     <div class="filter-row" id="calMonthFilters"></div>
+    <!-- Sync status filter -->
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      <button class="m-btn active" id="calStatusAll" onclick="setCalStatus('all')">All</button>
+      <button class="m-btn" id="calStatusPending" onclick="setCalStatus('pending')">⏳ Not Added</button>
+      <button class="m-btn" id="calStatusAdded" onclick="setCalStatus('added')">✓ Added to Calendar</button>
+    </div>
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
       <button class="btn btn-g" onclick="calSelectAll()" style="font-size:11px;padding:6px 12px;">☑ Select all</button>
       <button class="btn btn-g" onclick="clearSel()" style="font-size:11px;padding:6px 12px;">☐ Clear all</button>
@@ -636,7 +657,51 @@ document.addEventListener('DOMContentLoaded',()=>{
   const k=document.getElementById('ao_key');if(k)k.addEventListener('change',function(){document.getElementById('ao_key_qty').style.display=this.checked?'block':'none';});
   const ik=document.getElementById('ia_key');if(ik)ik.addEventListener('change',function(){document.getElementById('ia_key_qty').style.display=this.checked?'block':'none';});
 });
-function cancelEntry(){document.getElementById('reviewCard').style.display='none';document.getElementById('waText').value='';setSt('parseStatus','');}
+function cancelEntry(){
+  document.getElementById('reviewCard').style.display='none';
+  document.getElementById('waText').value='';
+  setSt('parseStatus','');
+  ['f_client','f_event','f_date','f_time','f_pkgprice','f_depo','f_discount','f_km','f_strips','f_loc','f_notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('f_pkg').value='2 JAM';
+  document.getElementById('f_txrate').value='1.00';
+  document.getElementById('f_balance').textContent='—';
+  ['ao_guest','ao_size','ao_xhour','ao_key'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  const kq=document.getElementById('ao_key_qty');if(kq){kq.value='';kq.style.display='none';}
+  setAddMode('wa');
+}
+
+// ADD MODE TOGGLE
+function setAddMode(mode){
+  const waCard=document.getElementById('waCard');
+  const reviewCard=document.getElementById('reviewCard');
+  const lbl=document.getElementById('reviewCardLbl');
+  document.getElementById('modeWa').classList.toggle('active',mode==='wa');
+  document.getElementById('modeManual').classList.toggle('active',mode==='manual');
+  if(mode==='wa'){
+    waCard.style.display='block';
+    reviewCard.style.display='none';
+    lbl.textContent='Step 2 — Review & confirm';
+  } else {
+    waCard.style.display='none';
+    reviewCard.style.display='block';
+    lbl.textContent='Manual entry — fill in details';
+  }
+}
+
+// CALENDAR SYNC TRACKING (persisted in localStorage)
+const CAL_KEY='boxy_cal_added';
+function getCalAdded(){try{return JSON.parse(localStorage.getItem(CAL_KEY)||'[]');}catch(e){return[];}}
+function markCalAdded(key){const a=new Set(getCalAdded());a.add(key);localStorage.setItem(CAL_KEY,JSON.stringify([...a]));}
+function isCalAdded(b){return getCalAdded().includes(calKey(b));}
+function calKey(b){return b.client+'|'+b.date;}
+
+let activeCalStatus='all';
+function setCalStatus(s){
+  activeCalStatus=s;
+  ['all','pending','added'].forEach(x=>document.getElementById('calStatus'+x[0].toUpperCase()+x.slice(1)).classList.toggle('active',s===x));
+  calSel.clear();
+  renderCalendar();
+}
 
 // BALANCE CALCULATOR
 function calcBalance(pre){
@@ -805,6 +870,9 @@ function renderCalendar(){
   if(activeCalMonth!=='all')up=up.filter(b=>mKey(b.date)===activeCalMonth);
   // Apply search
   if(q)up=up.filter(b=>(b.client+b.event+b.location).toLowerCase().includes(q));
+  // Apply status filter
+  if(activeCalStatus==='added')up=up.filter(b=>isCalAdded(b));
+  else if(activeCalStatus==='pending')up=up.filter(b=>!isCalAdded(b));
   window._calUp=up;
   const g=document.getElementById('calGrid');
   if(!up.length){g.innerHTML='<div class="empty">No upcoming bookings.</div>';updateBulkBar();return;}
@@ -813,14 +881,20 @@ function renderCalendar(){
     const dl=d?d.toLocaleDateString('en-MY',{day:'numeric',month:'short'}):b.date;
     const dy=d?d.toLocaleDateString('en-MY',{weekday:'short'}):'';
     const sel=calSel.has(i);
+    const added=isCalAdded(b);
     return`<div class="cal-card ${sel?'selected':''}" onclick="toggleSel(${i},event)" id="cc${i}">
       <div class="cal-tick" id="ct${i}">${sel?'✓':''}</div>
-      <div class="cal-date">${dl}</div>
+      <div style="position:absolute;top:10px;left:10px;font-size:9px;padding:2px 6px;border-radius:4px;${added?'background:rgba(74,222,128,.15);color:var(--success);':'background:rgba(255,92,92,.1);color:var(--muted);'}">${added?'✓ Added':'Pending'}</div>
+      <div class="cal-date" style="margin-top:18px;">${dl}</div>
       <div class="cal-day">${dy}</div>
       <div class="cal-client">${b.client}</div>
       <div class="cal-detail">${b.event}<br>${b.pkg} · ${b.time}<br>${b.location}</div>
-      <button class="cal-add-btn" onclick="oneCalAdd(event,${i})">+ Add to Calendar</button>
+      <div style="display:flex;gap:4px;margin-top:8px;">
+        <button class="cal-add-btn" style="flex:1;" onclick="oneCalAdd(event,${i})">+ Add to Calendar</button>
+        ${!added?`<button class="cal-add-btn" style="flex:0 0 auto;padding:5px 8px;border-color:var(--success);color:var(--success);" onclick="markAdded(event,${i})">✓</button>`:''}
+      </div>
     </div>`;
+  }).join('');
   }).join('');
   updateBulkBar();
 }
@@ -833,7 +907,8 @@ function calSelectAll(){
 function toggleSel(i,e){if(e.target.classList.contains('cal-add-btn'))return;if(calSel.has(i))calSel.delete(i);else calSel.add(i);document.getElementById('cc'+i).classList.toggle('selected',calSel.has(i));document.getElementById('ct'+i).textContent=calSel.has(i)?'✓':'';updateBulkBar();}
 function updateBulkBar(){const bar=document.getElementById('bulkBar');bar.classList.toggle('show',calSel.size>0);document.getElementById('bulkCount').textContent=calSel.size+' selected';}
 function clearSel(){calSel.clear();renderCalendar();}
-function oneCalAdd(e,i){e.stopPropagation();const b=(window._calUp||[])[i];if(b)window.open(calUrl(b),'_blank');}
+function markAdded(e,i){e.stopPropagation();const b=(window._calUp||[])[i];if(b){markCalAdded(b);renderCalendar();toast(b.client+' marked as added ✓');}}
+function oneCalAdd(e,i){e.stopPropagation();const b=(window._calUp||[])[i];if(b){window.open(calUrl(b),'_blank');markCalAdded(b);setTimeout(()=>renderCalendar(),300);}}
 function exportICS(){
   const up=window._calUp||[];const sel=[...calSel].map(i=>up[i]).filter(Boolean);
   if(!sel.length){toast('Select events first','err');return;}
@@ -848,6 +923,7 @@ function exportICS(){
   });
   ics+='END:VCALENDAR';
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));a.download='boxy-events.ics';a.click();
+  sel.forEach(b=>markCalAdded(b));
   toast('Exported '+sel.length+' events ✓');clearSel();
 }
 function calUrl(b){
@@ -1020,7 +1096,7 @@ function buildInvHTML(b,addons,num){
   <div class="inv-footer">
     <div><strong style="font-size:10px;letter-spacing:.08em;display:block;margin-bottom:8px;">PAY TO:</strong>
     <table style="border-collapse:collapse;"><tr><td style="padding:2px 14px 2px 0;color:#888;font-size:11px;">Bank</td><td style="font-size:11px;">BANK ISLAM MALAYSIA BERHAD</td></tr><tr><td style="padding:2px 14px 2px 0;color:#888;font-size:11px;">Account Name</td><td style="font-size:11px;">Amirul Shahiran</td></tr><tr><td style="padding:2px 14px 2px 0;color:#888;font-size:11px;">Account Number</td><td style="font-size:11px;">14014023723372</td></tr><tr><td style="padding:2px 14px 2px 0;color:#888;font-size:11px;">Contact</td><td style="font-size:11px;">+6011-54243088</td></tr></table></div>
-    <img src="${QR_B64}" style="height:85px;width:85px;object-fit:contain;" alt="DuitNow QR">
+    <img src="${QR_B64}" style="height:130px;width:130px;object-fit:contain;" alt="DuitNow QR">
   </div>
   <div class="inv-copy">Boxy Studio 2026</div>
 </div>`;
@@ -1035,7 +1111,7 @@ function downloadPDF(){
     *{box-sizing:border-box;}
     .inv-wrap{max-width:700px;margin:0 auto;}
     .inv-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;}
-    .inv-logo-img{height:50px;object-fit:contain;}
+    .inv-logo-img{height:80px;object-fit:contain;}
     .inv-num-lbl{font-size:24px;font-weight:700;letter-spacing:2px;text-align:right;}
     .inv-num-val{font-size:20px;text-align:right;}
     .inv-divider{height:1px;background:#ddd;margin:14px 0;}
