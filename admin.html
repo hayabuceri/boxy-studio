@@ -275,8 +275,8 @@ Cas transport RM39 (39km)"></textarea>
           <label style="color:var(--muted);">Balance</label>
           <div id="f_balance" style="font-family:var(--fd);font-size:18px;color:var(--accent);">—</div>
         </div>
-        <div class="field"><label>Distance km</label><input id="f_km" type="number" placeholder="e.g. 43"></div>
-        <div class="field"><label>Transport rate</label><select id="f_txrate"><option value="1.00">RM1.00/km (New customer)</option><option value="0.70">RM0.70/km (Returning customer)</option></select></div>
+        <div class="field"><label>Distance km</label><input id="f_km" type="number" placeholder="e.g. 43" oninput="calcBalance('f')"></div>
+        <div class="field"><label>Transport rate</label><select id="f_txrate" onchange="calcBalance('f')"><option value="1.00">RM1.00/km (New customer)</option><option value="0.70">RM0.70/km (Returning customer)</option></select></div>
         <div class="field"><label>Total strips</label><input id="f_strips" type="number" placeholder="e.g. 200"></div>
         <div class="field" style="align-items:flex-end;">
           <label style="color:var(--muted);">Notes</label>
@@ -301,6 +301,18 @@ Cas transport RM39 (39km)"></textarea>
         <button class="btn btn-g" onclick="openInvFromAdd()">Preview Invoice</button>
         <span id="submitStatus"></span>
       </div>
+    </div>
+
+    <!-- COPY TEMPLATES -->
+    <div class="card" id="tplCard">
+      <div class="card-lbl">Copy templates</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="btn btn-g" onclick="copyTemplate('form',this)">📋 Booking form</button>
+        <button class="btn btn-g" onclick="copyTemplate('quote',this)">📋 Quotation</button>
+        <button class="btn btn-g" onclick="copyPreview(this)">⧉ Copy text below</button>
+      </div>
+      <p style="font-size:10px;color:var(--muted);margin-bottom:8px;">Quotation pulls Package price, transport (km × rate), add-ons & discount from the form above. Edit the text below before copying if needed.</p>
+      <textarea id="tplPreview" placeholder="Tap a button to generate text here, then copy…" style="width:100%;min-height:200px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--fm);font-size:12px;padding:12px;resize:vertical;white-space:pre;"></textarea>
     </div>
   </div>
 
@@ -440,8 +452,8 @@ Cas transport RM39 (39km)"></textarea>
       <div class="field"><label>Package</label><select id="e_pkg" onchange="onPkgChange('e')"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
       <div class="field"><label>Time</label><input id="e_time" type="text"></div>
       <div class="field full"><label>Location</label><input id="e_loc" type="text"></div>
-      <div class="field"><label>Distance km</label><input id="e_km" type="number"></div>
-      <div class="field"><label>Transport rate</label><select id="e_txrate"><option value="1.00">RM1.00/km (New)</option><option value="0.70">RM0.70/km (Returning)</option></select></div>
+      <div class="field"><label>Distance km</label><input id="e_km" type="number" oninput="calcBalance('e')"></div>
+      <div class="field"><label>Transport rate</label><select id="e_txrate" onchange="calcBalance('e')"><option value="1.00">RM1.00/km (New)</option><option value="0.70">RM0.70/km (Returning)</option></select></div>
       <div class="field"><label>Package price (RM)</label><input id="e_pkgprice" type="number" oninput="calcBalance('e')"></div>
       <div class="field"><label>Deposit paid (RM)</label><input id="e_depo" type="number" oninput="calcBalance('e')"></div>
       <div class="field"><label>Discount (RM)</label><input id="e_discount" type="number" placeholder="0" oninput="calcBalance('e')"></div>
@@ -712,9 +724,9 @@ function parseEntry(){
   document.getElementById('f_pkgprice').value=priceNum;
   document.getElementById('f_depo').value='';
   document.getElementById('f_discount').value='';
-  document.getElementById('f_balance').textContent=priceNum?'RM'+parseFloat(priceNum).toFixed(2):'—';
   document.getElementById('f_km').value=km;
   document.getElementById('f_loc').value=location;
+  calcBalance('f');
   document.getElementById('reviewCard').style.display='block';
   const filled=[client,event,date,time,location].filter(v=>v).length;
   setSt('parseStatus',filled>=3?'<span class="pill ok">✓ Extracted</span>':'<span class="pill info">⚠ Partial</span>');
@@ -784,9 +796,12 @@ function calcBalance(pre){
   const pkg=parseFloat(document.getElementById(pre+'_pkgprice').value)||0;
   const depo=parseFloat(document.getElementById(pre+'_depo').value)||0;
   const disc=parseFloat(document.getElementById(pre+'_discount').value)||0;
-  const bal=Math.max(0,pkg-disc-depo);
+  const km=parseFloat((document.getElementById(pre+'_km')||{value:0}).value)||0;
+  const rate=parseFloat((document.getElementById(pre+'_txrate')||{value:0}).value)||0;
+  const trans=km*rate;
+  const bal=Math.max(0,pkg+trans-disc-depo);
   const el=document.getElementById(pre+'_balance');
-  if(el)el.textContent='RM'+bal.toFixed(2);
+  if(el)el.innerHTML='RM'+bal.toFixed(2)+(trans>0?`<div style="font-size:10px;color:var(--muted);font-weight:400;margin-top:2px;">incl. transport RM${trans.toFixed(2)} · ${km}km @ RM${rate.toFixed(2)}</div>`:'');
 }
 
 // Build the price string — matches existing sheet format: RM600 (depo 100) or RM600 (full payment)
@@ -803,6 +818,61 @@ function buildPriceStr(pkgPrice,depo,discount){
     s+=isPaid?' (full payment)':' (depo '+dep.toFixed(0)+')';
   }
   return s;
+}
+
+// COPY TEMPLATES (Add page)
+function bookingFormTpl(){
+  return `✨✨✨ PHOTOBOOTH BOXY STUDIO ✨✨✨
+Name: 
+Tel No: 
+Event (Wedding/Birthday/Dinner): 
+Venue Location: 
+Date: 
+Time:
+Pakej 2/3/4jam:
+Nama pengantin laki&perempuan:
+
+What's included in the package?
+    -Unlimited photostrip 2*6
+    -Free custom template
+    -Props dan backdrop
+    -Soft copy (Airdrop/QR) & Hardcopy
+    -event crew`;
+}
+function quotationTpl(){
+  const pkg=parseFloat((document.getElementById('f_pkgprice')||{value:0}).value)||0;
+  const km=parseFloat((document.getElementById('f_km')||{value:0}).value)||0;
+  const rate=parseFloat((document.getElementById('f_txrate')||{value:0}).value)||0;
+  const trans=km*rate;
+  const addons=getAddons('ao_');
+  const addonTotal=addons.reduce((s,a)=>s+a.amt,0);
+  const disc=parseFloat((document.getElementById('f_discount')||{value:0}).value)||0;
+  const total=Math.max(0,pkg+trans+addonTotal-disc);
+  const rm=v=>v?('RM'+(Number.isInteger(v)?v:v.toFixed(2))):'RM';
+  const addonLbl=addons.length?addons.map(a=>a.name).join(', '):'Guestbook/Extra hour/upgrade 4*6';
+  let s=`PHOTOBOOTH BOXY STUDIO QUOTATION
+
+Package Price: ${rm(pkg)}
+Transport Charge (toll & parking included): ${rm(trans)}
+Add on (${addonLbl}): ${rm(addonTotal)}`;
+  if(disc>0)s+=`\nDiscount: -RM${disc}`;
+  s+=`\n\nTOTAL: ${rm(total)}
+
+#Deposit min RM100 to lock the date and full payment can be made last one day before the event
+#Deposit is not refundable if cancelled by customer`;
+  return s;
+}
+function copyTemplate(kind,btn){
+  const txt=kind==='form'?bookingFormTpl():quotationTpl();
+  document.getElementById('tplPreview').value=txt;
+  copyToClipboard(txt,btn);
+}
+function copyPreview(btn){copyToClipboard(document.getElementById('tplPreview').value,btn);}
+function copyToClipboard(txt,btn){
+  if(!txt){toast('Nothing to copy','err');return;}
+  const done=()=>{toast('Copied ✓');if(btn){const o=btn.textContent;btn.textContent='✓ Copied';setTimeout(()=>{btn.textContent=o;},1500);}};
+  const fallback=()=>{const ta=document.getElementById('tplPreview');ta.focus();ta.select();try{document.execCommand('copy');done();}catch(e){toast('Select the text and press Ctrl/Cmd+C','info');}};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done).catch(fallback);}else fallback();
 }
 
 // SUBMIT
