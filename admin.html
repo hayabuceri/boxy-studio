@@ -80,6 +80,7 @@ textarea::placeholder{color:var(--muted2);}
 .search-input:focus{border-color:var(--accent);}
 .filter-row{display:flex;gap:5px;margin-bottom:14px;flex-wrap:wrap;}
 .m-btn{padding:5px 10px;font-size:11px;font-family:var(--fm);background:none;border:1px solid var(--border2);border-radius:6px;color:var(--muted);cursor:pointer;transition:all .15s;}
+.tpl-tok{display:inline-block;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;color:var(--accent);font-size:10px;}
 .m-btn:hover{border-color:var(--text);color:var(--text);}
 .m-btn.active{background:var(--accent);color:#0e0e0e;border-color:var(--accent);font-weight:500;}
 
@@ -303,16 +304,38 @@ Cas transport RM39 (39km)"></textarea>
       </div>
     </div>
 
-    <!-- COPY TEMPLATES -->
+    <!-- MESSAGE TEMPLATES -->
     <div class="card" id="tplCard">
-      <div class="card-lbl">Copy templates</div>
-      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-        <button class="btn btn-g" onclick="copyTemplate('form',this)">📋 Booking form</button>
-        <button class="btn btn-g" onclick="copyTemplate('quote',this)">📋 Quotation</button>
-        <button class="btn btn-g" onclick="copyPreview(this)">⧉ Copy text below</button>
+      <div class="card-lbl">Message templates</div>
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        <button class="m-btn active" id="tplTabForm" onclick="setTplTab('form')">Booking form</button>
+        <button class="m-btn" id="tplTabQuote" onclick="setTplTab('quote')">Quotation</button>
       </div>
-      <p style="font-size:10px;color:var(--muted);margin-bottom:8px;">Quotation pulls Package price, transport (km × rate), add-ons & discount from the form above. Edit the text below before copying if needed.</p>
-      <textarea id="tplPreview" placeholder="Tap a button to generate text here, then copy…" style="width:100%;min-height:200px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--fm);font-size:12px;padding:12px;resize:vertical;white-space:pre;"></textarea>
+
+      <!-- Booking form editor -->
+      <div id="tplFormWrap">
+        <textarea id="tplFormEditor" style="width:100%;min-height:230px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--fm);font-size:12px;line-height:1.5;padding:12px;resize:vertical;white-space:pre;"></textarea>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-p" onclick="copyForm(this)">📋 Copy</button>
+          <button class="btn btn-g" onclick="saveTemplate('form',this)">Save</button>
+          <button class="btn btn-g" onclick="resetTemplate('form')">↺ Reset to default</button>
+        </div>
+      </div>
+
+      <!-- Quotation editor -->
+      <div id="tplQuoteWrap" style="display:none;">
+        <textarea id="tplQuoteEditor" style="width:100%;min-height:200px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--fm);font-size:12px;line-height:1.5;padding:12px;resize:vertical;white-space:pre;"></textarea>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.7;">
+          Auto-filled from the form when you copy:
+          <span class="tpl-tok">{hours}</span> <span class="tpl-tok">{package}</span> <span class="tpl-tok">{transport}</span> <span class="tpl-tok">{km}</span> <span class="tpl-tok">{total}</span>
+          <br>Optional: <span class="tpl-tok">{addons}</span> <span class="tpl-tok">{discount}</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-p" onclick="copyQuote(this)">📋 Copy</button>
+          <button class="btn btn-g" onclick="saveTemplate('quote',this)">Save</button>
+          <button class="btn btn-g" onclick="resetTemplate('quote')">↺ Reset to default</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -741,6 +764,7 @@ function cvtTime(raw){
   return raw;
 }
 document.addEventListener('DOMContentLoaded',()=>{
+  loadTemplates();
   const k=document.getElementById('ao_key');if(k)k.addEventListener('change',function(){document.getElementById('ao_key_qty').style.display=this.checked?'block':'none';});
   const ik=document.getElementById('ia_key');if(ik)ik.addEventListener('change',function(){document.getElementById('ia_key_qty').style.display=this.checked?'block':'none';});
 });
@@ -820,9 +844,9 @@ function buildPriceStr(pkgPrice,depo,discount){
   return s;
 }
 
-// COPY TEMPLATES (Add page)
-function bookingFormTpl(){
-  return `✨✨✨ PHOTOBOOTH BOXY STUDIO ✨✨✨
+// MESSAGE TEMPLATES (Add page) — editable & saved in localStorage
+const TPL_KEYS={form:'boxy_tpl_form',quote:'boxy_tpl_quote'};
+const DEFAULT_FORM_TPL=`✨✨✨ PHOTOBOOTH BOXY STUDIO ✨✨✨
 Name: 
 Tel No: 
 Event (Wedding/Birthday/Dinner): 
@@ -838,40 +862,61 @@ What's included in the package?
     -Props dan backdrop
     -Soft copy (Airdrop/QR) & Hardcopy
     -event crew`;
+const DEFAULT_QUOTE_TPL=`{hours} Hours Photobooth Package RM{package}
+
+Transport Charge RM{transport} ({km}KM, Toll and Parking Included)
+
+TOTAL: RM{total}
+
+⧉ Deposit min RM100 to lock the date
+⧉ Full payment can be made last ONE day before the event
+⧉ Deposit is not refundable if cancelled by customer`;
+function tplDefault(which){return which==='form'?DEFAULT_FORM_TPL:DEFAULT_QUOTE_TPL;}
+function tplEditorEl(which){return document.getElementById(which==='form'?'tplFormEditor':'tplQuoteEditor');}
+function loadTemplates(){
+  ['form','quote'].forEach(w=>{const el=tplEditorEl(w);if(!el)return;let v=null;try{v=localStorage.getItem(TPL_KEYS[w]);}catch(e){}el.value=(v!=null&&v!=='')?v:tplDefault(w);});
 }
-function quotationTpl(){
+function setTplTab(which){
+  document.getElementById('tplTabForm').classList.toggle('active',which==='form');
+  document.getElementById('tplTabQuote').classList.toggle('active',which==='quote');
+  document.getElementById('tplFormWrap').style.display=which==='form'?'block':'none';
+  document.getElementById('tplQuoteWrap').style.display=which==='quote'?'block':'none';
+}
+function saveTemplate(which,btn){
+  try{localStorage.setItem(TPL_KEYS[which],tplEditorEl(which).value);}catch(e){}
+  toast('Template saved ✓');if(btn){const o=btn.textContent;btn.textContent='✓ Saved';setTimeout(()=>{btn.textContent=o;},1500);}
+}
+function resetTemplate(which){
+  tplEditorEl(which).value=tplDefault(which);
+  try{localStorage.setItem(TPL_KEYS[which],tplDefault(which));}catch(e){}
+  toast('Reset to default');
+}
+// Substitute live form values into the quotation placeholders
+function fillQuote(tpl){
   const pkg=parseFloat((document.getElementById('f_pkgprice')||{value:0}).value)||0;
   const km=parseFloat((document.getElementById('f_km')||{value:0}).value)||0;
   const rate=parseFloat((document.getElementById('f_txrate')||{value:0}).value)||0;
   const trans=km*rate;
-  const addons=getAddons('ao_');
-  const addonTotal=addons.reduce((s,a)=>s+a.amt,0);
+  const addonTotal=getAddons('ao_').reduce((s,a)=>s+a.amt,0);
   const disc=parseFloat((document.getElementById('f_discount')||{value:0}).value)||0;
   const total=Math.max(0,pkg+trans+addonTotal-disc);
-  const rm=v=>v?('RM'+(Number.isInteger(v)?v:v.toFixed(2))):'RM';
-  const addonLbl=addons.length?addons.map(a=>a.name).join(', '):'Guestbook/Extra hour/upgrade 4*6';
-  let s=`PHOTOBOOTH BOXY STUDIO QUOTATION
-
-Package Price: ${rm(pkg)}
-Transport Charge (toll & parking included): ${rm(trans)}
-Add on (${addonLbl}): ${rm(addonTotal)}`;
-  if(disc>0)s+=`\nDiscount: -RM${disc}`;
-  s+=`\n\nTOTAL: ${rm(total)}
-
-#Deposit min RM100 to lock the date and full payment can be made last one day before the event
-#Deposit is not refundable if cancelled by customer`;
-  return s;
+  const hours=((document.getElementById('f_pkg')||{value:''}).value.match(/\d+/)||[''])[0];
+  const amt=v=>v?(Number.isInteger(v)?String(v):v.toFixed(2)):'';
+  return tpl
+    .replace(/{hours}/g,hours)
+    .replace(/{package}/g,amt(pkg))
+    .replace(/{transport}/g,amt(trans))
+    .replace(/{km}/g,km?String(km):'')
+    .replace(/{addons}/g,amt(addonTotal))
+    .replace(/{discount}/g,amt(disc))
+    .replace(/{total}/g,amt(total));
 }
-function copyTemplate(kind,btn){
-  const txt=kind==='form'?bookingFormTpl():quotationTpl();
-  document.getElementById('tplPreview').value=txt;
-  copyToClipboard(txt,btn);
-}
-function copyPreview(btn){copyToClipboard(document.getElementById('tplPreview').value,btn);}
+function copyForm(btn){copyToClipboard(tplEditorEl('form').value,btn);}
+function copyQuote(btn){copyToClipboard(fillQuote(tplEditorEl('quote').value),btn);}
 function copyToClipboard(txt,btn){
   if(!txt){toast('Nothing to copy','err');return;}
   const done=()=>{toast('Copied ✓');if(btn){const o=btn.textContent;btn.textContent='✓ Copied';setTimeout(()=>{btn.textContent=o;},1500);}};
-  const fallback=()=>{const ta=document.getElementById('tplPreview');ta.focus();ta.select();try{document.execCommand('copy');done();}catch(e){toast('Select the text and press Ctrl/Cmd+C','info');}};
+  const fallback=()=>{const ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');done();}catch(e){toast('Copy not supported — long-press to copy','info');}document.body.removeChild(ta);};
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done).catch(fallback);}else fallback();
 }
 
