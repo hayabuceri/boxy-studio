@@ -920,6 +920,16 @@ function copyToClipboard(txt,btn){
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done).catch(fallback);}else fallback();
 }
 
+// Find the next writable row: 1 + the last row that has any data anywhere in A:J.
+// Reading A:J (not just A) means a stray/misaligned row below the list can't be overwritten.
+async function getNextRow(){
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME+'!A:J')}`;
+  const d=await sheetWrite(url,{method:'GET',headers:{}});
+  const vals=(d&&d.values)||[];
+  let last=0;
+  for(let i=0;i<vals.length;i++){if((vals[i]||[]).some(c=>c!=null&&String(c).trim()!==''))last=i+1;}
+  return last+1;// 1-based row number
+}
 // SUBMIT
 async function submitEntry(){
   if(!token){toast('Not signed in','err');return;}
@@ -933,16 +943,14 @@ async function submitEntry(){
   const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='Saving...';
   setSt('submitStatus','<span class="spinner"></span>');
   try{
-    // INSERT_ROWS guarantees a brand-new row is added and never overwrites data below a gap.
-    // Explicit A:J range anchors the append to the booking table.
-    const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME+'!A:J')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
-    const d=await sheetWrite(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
-    // Work out the real sheet row that was written so edit/delete/invoice-sync target it correctly
-    let newRow=null;const ur=(d&&d.updates&&d.updates.updatedRange)||'';
-    const rm=ur.match(/!\D*(\d+)/);if(rm)newRow=parseInt(rm[1]);
-    // INSERT_ROWS may push rows below the insertion point down by one — keep their tracked row in step
-    if(newRow)allBookings.forEach(x=>{if(x.sheetRow&&x.sheetRow>=newRow)x.sheetRow++;});
-    const nb={sheetRow:newRow,client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6],km:row[7],strips:row[8],txrate:row[9]};
+    // Find the true bottom of the sheet (last row containing ANY data in A:J), then write the
+    // new booking explicitly into A..J of the next row. This guarantees correct column alignment
+    // (append's table-detection could start the row at the wrong column, e.g. column E).
+    const nextRow=await getNextRow();
+    const range=`${SHEET_NAME}!A${nextRow}:J${nextRow}`;
+    const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+    await sheetWrite(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
+    const nb={sheetRow:nextRow,client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6],km:row[7],strips:row[8],txrate:row[9]};
     allBookings.push(nb);
     const newIdx=allBookings.length-1;
     toast(row[0]+' saved ✓');
