@@ -265,7 +265,7 @@ Cas transport RM39 (39km)"></textarea>
         <div class="field"><label>Client name</label><input id="f_client" type="text"></div>
         <div class="field"><label>Event type</label><input id="f_event" type="text"></div>
         <div class="field"><label>Date (DD/MM/YYYY)</label><input id="f_date" type="text"></div>
-        <div class="field"><label>Package</label><select id="f_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
+        <div class="field"><label>Package</label><select id="f_pkg" onchange="onPkgChange('f')"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
         <div class="field"><label>Time (e.g. 7.00pm-9.00pm)</label><input id="f_time" type="text"></div>
         <div class="field full"><label>Location</label><input id="f_loc" type="text"></div>
         <div class="field"><label>Package price (RM)</label><input id="f_pkgprice" type="number" placeholder="e.g. 600" oninput="calcBalance('f')"></div>
@@ -360,7 +360,7 @@ Cas transport RM39 (39km)"></textarea>
       <div class="fields">
         <div class="field"><label>Client name</label><input id="i_client" type="text"></div>
         <div class="field"><label>Date</label><input id="i_date" type="text" placeholder="DD/MM/YYYY"></div>
-        <div class="field"><label>Package</label><select id="i_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
+        <div class="field"><label>Package</label><select id="i_pkg" onchange="onPkgChange('i')"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
         <div class="field"><label>Package price (RM)</label><input id="i_price" type="number" placeholder="e.g. 600"></div>
         <div class="field"><label>Discount (RM)</label><input id="i_discount" type="number" placeholder="0"></div>
         <div class="field"><label>Distance km</label><input id="i_km" type="number" placeholder="e.g. 43"></div>
@@ -437,7 +437,7 @@ Cas transport RM39 (39km)"></textarea>
       <div class="field"><label>Client name</label><input id="e_client" type="text"></div>
       <div class="field"><label>Event type</label><input id="e_event" type="text"></div>
       <div class="field"><label>Date (DD/MM/YYYY)</label><input id="e_date" type="text"></div>
-      <div class="field"><label>Package</label><select id="e_pkg"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
+      <div class="field"><label>Package</label><select id="e_pkg" onchange="onPkgChange('e')"><option>2 JAM</option><option>3 JAM</option><option>4 JAM</option></select></div>
       <div class="field"><label>Time</label><input id="e_time" type="text"></div>
       <div class="field full"><label>Location</label><input id="e_loc" type="text"></div>
       <div class="field"><label>Distance km</label><input id="e_km" type="number"></div>
@@ -450,7 +450,6 @@ Cas transport RM39 (39km)"></textarea>
         <label style="color:var(--muted);">Balance</label>
         <div id="e_balance" style="font-family:var(--fd);font-size:18px;color:var(--accent);">—</div>
       </div>
-      <div class="field full"><label>Location</label><input id="e_loc" type="text"></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-g" onclick="closeEdit()">Cancel</button>
@@ -500,7 +499,7 @@ const SHEET_NAME='Client Record';
 const SCOPES='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile';
 
 let token=null,allBookings=[],activeMonth='all',tokenClient=null;
-let editIdx=-1,deleteIdx=-1,calSel=new Set(),curInv=null;
+let editIdx=-1,deleteIdx=-1,calSel=new Set(),curInv=null,invSourceIdx=-1;
 
 // AUTH
 // ── PERSISTENT SESSION ──────────────────────────────────────────────────────
@@ -510,8 +509,43 @@ function loadSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)|
 return s;}catch(e){return null;}}
 function clearSession(){try{localStorage.removeItem(SESSION_KEY);}catch(e){}}
 
-function initG(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:r=>{if(r.error){toast('Sign-in error','err');return;}token=r.access_token;// Update saved token
-const s=loadSession();if(s){saveSession(token,s.user);}fetchUser();}});}
+let _tokenResolve=null;// set when an awaitable silent refresh is in flight
+function initG(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:r=>{
+  if(r.error){if(_tokenResolve){_tokenResolve(false);_tokenResolve=null;}toast('Sign-in error','err');return;}
+  token=r.access_token;
+  const s=loadSession();saveSession(token,s?s.user:(window._lastUser||null));
+  if(_tokenResolve){// awaited refresh — don't re-run the full login flow
+    _tokenResolve(true);_tokenResolve=null;
+  } else {fetchUser();}
+}});}
+// Awaitable silent token refresh — resolves true when a fresh token arrives
+function refreshToken(){
+  return new Promise(res=>{
+    if(!window.google){res(false);return;}
+    if(!tokenClient)initG();
+    _tokenResolve=res;
+    try{tokenClient.requestAccessToken({prompt:''});}
+    catch(e){_tokenResolve=null;res(false);}
+    setTimeout(()=>{if(_tokenResolve){_tokenResolve=null;res(false);}},8000);
+  });
+}
+// Single write to the Sheets API that transparently refreshes an expired token and retries once.
+// Returns the parsed JSON; throws on a real (non-auth) error so callers can surface it.
+async function sheetWrite(url,opts){
+  opts.headers=opts.headers||{};
+  opts.headers.Authorization='Bearer '+token;
+  let r=await fetch(url,opts);
+  let d=await r.json().catch(()=>({}));
+  if(d&&d.error&&(d.error.code===401||d.error.status==='UNAUTHENTICATED')){
+    const ok=await refreshToken();
+    if(!ok)throw new Error('Session expired — please click Sign in again');
+    opts.headers.Authorization='Bearer '+token;
+    r=await fetch(url,opts);
+    d=await r.json().catch(()=>({}));
+  }
+  if(d&&d.error)throw new Error(d.error.message||'Sheets API error');
+  return d;
+}
 function signIn(){if(!window.google){toast('Loading...','err');return;}if(!tokenClient)initG();tokenClient.requestAccessToken({prompt:'consent'});}
 function signOut(){if(token)google.accounts.oauth2.revoke(token);token=null;allBookings=[];clearSession();document.getElementById('loginScreen').style.display='flex';document.getElementById('appScreen').style.display='none';toast('Signed out','info');}
 async function fetchUser(){
@@ -521,6 +555,7 @@ async function fetchUser(){
   catch(e){toast('User load failed','err');}
 }
 function applyUser(u){
+  window._lastUser=u;
   document.getElementById('uName').textContent=u.given_name||u.name||'';
   const av=document.getElementById('uAv');if(u.picture){av.src=u.picture;av.style.display='block';}
 }
@@ -605,9 +640,12 @@ async function loadSheet(){
       btn.textContent='↻';return;
     }
     if(d.error)throw new Error(d.error.message);
-    allBookings=(d.values||[]).slice(1).filter(r=>r[0]&&r[0].trim()&&!/^NOT AVAILABLE/i.test(r[0])).map((r,i)=>({
-      idx:i,client:r[0]||'',event:r[1]||'',date:r[2]||'',pkg:r[3]||'',time:r[4]||'',price:r[5]||'',location:r[6]||'',km:r[7]||'',strips:r[8]||'',txrate:r[9]||'1.00'
-    }));
+    allBookings=(d.values||[]).slice(1)
+      .map((r,i)=>({_row:i+2,r}))   // _row = real 1-based sheet row (row 1 is the header)
+      .filter(o=>o.r[0]&&o.r[0].trim()&&!/^NOT AVAILABLE/i.test(o.r[0]))
+      .map(o=>({
+        sheetRow:o._row,client:o.r[0]||'',event:o.r[1]||'',date:o.r[2]||'',pkg:o.r[3]||'',time:o.r[4]||'',price:o.r[5]||'',location:o.r[6]||'',km:o.r[7]||'',strips:o.r[8]||'',txrate:o.r[9]||'1.00'
+      }));
     toast('Synced — '+allBookings.length+' bookings');
     ensureHeaders();
     const pg=document.querySelector('.page.active');
@@ -668,8 +706,9 @@ function parseEntry(){
   document.getElementById('f_date').value=date;
   document.getElementById('f_pkg').value=pkg;
   document.getElementById('f_time').value=time;
-  // Parse price into structured fields
-  const priceNum=price?parseFloat(price.replace(/[^\d.]/g,''))||'':'';
+  // Parse price into structured fields — fall back to the hour-based default if none found
+  let priceNum=price?parseFloat(price.replace(/[^\d.]/g,''))||'':'';
+  if(!priceNum)priceNum=PKG_PRICE[pkg]||'';
   document.getElementById('f_pkgprice').value=priceNum;
   document.getElementById('f_depo').value='';
   document.getElementById('f_discount').value='';
@@ -729,6 +768,18 @@ function setCalStatus(s){
 }
 
 // BALANCE CALCULATOR
+// Hour-based default package prices (placeholders — fully editable per booking)
+const PKG_PRICE={'2 JAM':500,'3 JAM':650,'4 JAM':750};
+const PKG_DEFAULTS=Object.values(PKG_PRICE);
+// When package changes, fill the default price — but never clobber a custom price the user typed
+function onPkgChange(pre){
+  const pkgEl=document.getElementById(pre==='i'?'i_pkg':pre+'_pkg');
+  const priceEl=document.getElementById(pre==='i'?'i_price':pre+'_pkgprice');
+  if(!pkgEl||!priceEl)return;
+  const cur=parseFloat(priceEl.value)||0;
+  if(!cur||PKG_DEFAULTS.includes(cur)){priceEl.value=PKG_PRICE[pkgEl.value]||cur;}
+  if(pre!=='i')calcBalance(pre);
+}
 function calcBalance(pre){
   const pkg=parseFloat(document.getElementById(pre+'_pkgprice').value)||0;
   const depo=parseFloat(document.getElementById(pre+'_depo').value)||0;
@@ -767,12 +818,22 @@ async function submitEntry(){
   const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='Saving...';
   setSt('submitStatus','<span class="spinner"></span>');
   try{
-    const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}:append?valueInputOption=USER_ENTERED`,
-      {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
-    const d=await r.json();if(d.error)throw new Error(d.error.message);
+    // INSERT_ROWS guarantees a brand-new row is added and never overwrites data below a gap.
+    // Explicit A:J range anchors the append to the booking table.
+    const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME+'!A:J')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+    const d=await sheetWrite(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
+    // Work out the real sheet row that was written so edit/delete/invoice-sync target it correctly
+    let newRow=null;const ur=(d&&d.updates&&d.updates.updatedRange)||'';
+    const rm=ur.match(/!\D*(\d+)/);if(rm)newRow=parseInt(rm[1]);
+    // INSERT_ROWS may push rows below the insertion point down by one — keep their tracked row in step
+    if(newRow)allBookings.forEach(x=>{if(x.sheetRow&&x.sheetRow>=newRow)x.sheetRow++;});
+    const nb={sheetRow:newRow,client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6],km:row[7],strips:row[8],txrate:row[9]};
+    allBookings.push(nb);
+    const newIdx=allBookings.length-1;
     toast(row[0]+' saved ✓');
-    allBookings.push({client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6],km:row[7],strips:row[8],txrate:row[9]});
     cancelEntry();setSt('submitStatus','');
+    // Fast invoicing: jump straight to this booking's invoice panel
+    openInvForBooking(newIdx);
   }catch(e){toast('Save failed: '+e.message,'err');setSt('submitStatus','<span class="pill err">'+e.message+'</span>');}
   btn.disabled=false;btn.textContent='Save to Sheet ↑';
 }
@@ -861,17 +922,19 @@ function openEdit(idx){
 function closeEdit(){document.getElementById('editOverlay').classList.remove('open');}
 async function saveEdit(){
   if(!token){toast('Not signed in','err');return;}
+  const cur=allBookings[editIdx];if(!cur){toast('Booking not found','err');return;}
   const pkgPrice=document.getElementById('e_pkgprice').value.trim();
   const depo=document.getElementById('e_depo').value.trim();
   const discount=document.getElementById('e_discount').value.trim();
   const txrate=document.getElementById('e_txrate').value;
   const priceStr=buildPriceStr(pkgPrice,depo,discount);
   const row=[document.getElementById('e_client').value.trim(),document.getElementById('e_event').value.trim(),document.getElementById('e_date').value.trim(),document.getElementById('e_pkg').value,document.getElementById('e_time').value.trim(),priceStr,document.getElementById('e_loc').value.trim(),document.getElementById('e_km').value.trim(),document.getElementById('e_strips').value.trim(),txrate];
-  const range=`${SHEET_NAME}!A${editIdx+2}:J${editIdx+2}`;
+  const sr=cur.sheetRow;
+  if(!sr){toast('Row unknown — please Sync, then edit again','err');return;}
+  const range=`${SHEET_NAME}!A${sr}:J${sr}`;
   try{
-    const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
-      {method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
-    const d=await r.json();if(d.error)throw new Error(d.error.message);
+    const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+    await sheetWrite(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:[row]})});
     allBookings[editIdx]={...allBookings[editIdx],client:row[0],event:row[1],date:row[2],pkg:row[3],time:row[4],price:row[5],location:row[6],km:row[7],strips:row[8],txrate:row[9]};
     toast('Updated ✓');closeEdit();renderBookings();
   }catch(e){toast('Update failed: '+e.message,'err');}
@@ -882,9 +945,12 @@ function openDelete(idx){deleteIdx=idx;document.getElementById('delMsg').textCon
 function closeDelete(){document.getElementById('delOverlay').classList.remove('open');}
 async function confirmDelete(){
   if(!token){toast('Not signed in','err');return;}
+  const cur=allBookings[deleteIdx];if(!cur){toast('Booking not found','err');return;}
+  const sr=cur.sheetRow;
+  if(!sr){toast('Row unknown — please Sync, then delete again','err');return;}
   try{
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME+'!A'+(deleteIdx+2)+':I'+(deleteIdx+2))}:clear`,
-      {method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}});
+    const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME+'!A'+sr+':J'+sr)}:clear`;
+    await sheetWrite(url,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     allBookings.splice(deleteIdx,1);toast('Deleted');closeDelete();renderBookings();
   }catch(e){toast('Delete failed: '+e.message,'err');}
 }
@@ -999,12 +1065,14 @@ function invSearchFilter(){
 }
 
 function quickGenInv(idx){
+  invSourceIdx=idx;
   const b=allBookings[idx];
   const disc=pDiscount(b.price);
   showInvoice({client:b.client,date:b.date,pkg:b.pkg,pkgPrice:pPrice(b.price),km:parseFloat(b.km)||0,depo:pDepo(b.price),discount:disc,txrate:parseFloat(b.txrate||1.00)},[]); 
 }
 
 function openInvUpdate(idx){
+  invSourceIdx=idx;
   const b=allBookings[idx];
   document.getElementById('i_client').value=b.client||'';
   document.getElementById('i_date').value=fDateEdit(b.date||'');
@@ -1054,6 +1122,7 @@ function openInvForBooking(idx){
 }
 
 function openInvFromAdd(){
+  invSourceIdx=-1; // booking not saved to sheet yet — nothing to sync back to
   const b={
     client:document.getElementById('f_client').value,
     date:document.getElementById('f_date').value,
@@ -1133,9 +1202,36 @@ function buildInvHTML(b,addons,num){
   <div class="inv-copy">Boxy Studio 2026</div>
 </div>`;
 }
+// Write the invoice's latest figures (price string w/ deposit+discount, km, transport rate) back to the booking row.
+// Updates only columns F, H, J so it never disturbs Event/Time/Strips etc.
+async function syncInvoiceToSheet(idx,b){
+  if(idx<0)return;
+  const cur=allBookings[idx];
+  if(!cur||!cur.sheetRow)return;// no row to sync (e.g. invoice built from unsaved Add form)
+  const priceStr=buildPriceStr(b.pkgPrice,b.depo,b.discount);
+  const sr=cur.sheetRow;
+  try{
+    const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`;
+    await sheetWrite(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      valueInputOption:'USER_ENTERED',
+      data:[
+        {range:`${SHEET_NAME}!F${sr}`,values:[[priceStr]]},
+        {range:`${SHEET_NAME}!H${sr}`,values:[[String(b.km||'')]]},
+        {range:`${SHEET_NAME}!J${sr}`,values:[[String(b.txrate||'1.00')]]}
+      ]
+    })});
+    // Keep local data + UI in step so the balance is correct everywhere immediately
+    allBookings[idx]={...cur,price:priceStr,km:String(b.km||''),txrate:String(b.txrate||'1.00')};
+    toast('Invoice saved to sheet ✓');
+    const pg=document.querySelector('.page.active');
+    if(pg){const id=pg.id.replace('page-','');if(id==='invoice')renderInvBookingList();if(id==='bookings')renderBookings();if(id==='dashboard')renderDashboard();}
+  }catch(e){toast('Sheet sync failed: '+e.message,'err');}
+}
 function downloadPDF(){
   if(!curInv)return;
   bumpInvNum();
+  // Persist the updated balance/deposit back to the booking's sheet row
+  syncInvoiceToSheet(invSourceIdx,curInv.b);
   const el=document.getElementById('invPrint');
   const invNum=document.getElementById('invNumDisplay').textContent;
   const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
